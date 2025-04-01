@@ -15,7 +15,7 @@ GEMINI_API_KEY = "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4"
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-pro')  # فرض می‌کنیم این مدل کار می‌کنه
 
-# لینک PDF مستقیم
+# لینک PDF مستقیم (فعلاً استفاده نمی‌شه، چون فایل محلی می‌فرستیم)
 PDF_LINK = "https://www.mediafire.com/file/rdg4tmz7x6wkmjb/%25D8%25AC%25D9%2586%25DA%25AF%25D9%2584_%25D8%25AE%25D9%2588%25D8%25AF%25D8%25AA%25D9%2588_%25D8%25A8%25D8%25B3%25D8%25A7%25D8%25B2_-_%25D8%25A8%25D8%25A7%25D8%25BA_%25D9%2587%25DB%258C%25D9%2588%25D8%25A7.pdf/file"
 
 # منوی اصلی
@@ -46,10 +46,10 @@ def education_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# منوی دکمه‌های بلاگ
+# منوی دکمه‌های بلاگ (تغییر کرده)
 def blog_menu():
     keyboard = [
-        [InlineKeyboardButton("دانلود PDF جنگل خودتو بساز هیوا", url=PDF_LINK)],
+        [InlineKeyboardButton("دریافت PDF جنگل خودتو بساز هیوا", callback_data="download_pdf")],
         [InlineKeyboardButton("بازگشت", callback_data="back_to_education")]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -58,7 +58,7 @@ def blog_menu():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("سلام! به ربات هیوا خوش اومدی. یه گزینه رو انتخاب کن:", reply_markup=main_menu())
 
-# مدیریت دکمه‌ها
+# مدیریت دکمه‌ها (تغییر کرده برای ارسال PDF)
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -192,7 +192,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=content,
                 reply_markup=blog_menu()
             )
-
+    elif choice == "download_pdf":  # شرط جدید برای ارسال فایل
+        pdf_path = "جنگل_خودتو_بساز_هیوا.pdf"  # مسیر فایل توی پوشه پروژه
+        with open(pdf_path, 'rb') as pdf_file:
+            await context.bot.send_document(
+                chat_id=query.message.chat_id,
+                document=pdf_file,
+                filename="جنگل_خودتو_بساز_هیوا.pdf",
+                caption="اینم PDF جنگل خودتو بساز هیوا! امیدوارم به کارت بیاد 🌿"
+            )
     elif choice == "back_to_main":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
