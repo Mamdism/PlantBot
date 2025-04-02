@@ -6,7 +6,7 @@ import requests
 # آیدی عددی تلگرام ادمین
 ADMIN_ID = "1478363268"
 
-# توکن ربات (توکن جدیدت رو بذار)
+# توکن ربات
 BOT_TOKEN = "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4"
 
 # کلید API Gemini
@@ -76,22 +76,15 @@ async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
     products = []
     print(f"در حال بررسی کانال {CHANNEL_ID} برای دسته‌بندی: {category}")
     
-    # استفاده از API خام تلگرام
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatHistory"
-    params = {
-        "chat_id": CHANNEL_ID,
-        "limit": 100
-    }
-    response = requests.get(url, params=params)
-    data = response.json()
-    
-    if data.get("ok"):
-        messages = data["result"]["messages"]
-        for message in messages:
-            print(f"پیام پیدا شد: text={message.get('text')}")
-            if message.get("text"):
-                print(f"پست با متن پیدا شد: {message['text']}")
-                lines = message["text"].split('\n')
+    # گرفتن آپدیت‌ها از تلگرام
+    updates = await context.bot.get_updates()
+    for update in updates:
+        if update.channel_post and str(update.channel_post.chat_id) == CHANNEL_ID:
+            message = update.channel_post
+            print(f"پیام پیدا شد: text={message.text}")
+            if message.text:
+                print(f"پست با متن پیدا شد: {message.text}")
+                lines = message.text.split('\n')
                 product = {}
                 for line in lines:
                     print(f"خط در حال بررسی: {line}")
@@ -110,8 +103,6 @@ async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
                 if product.get("category") == category:
                     products.append(product)
                     print(f"محصول اضافه شد: {product}")
-    else:
-        print(f"خطا در گرفتن پیام‌ها: {data}")
     
     print(f"تعداد محصولات پیدا شده: {len(products)}")
     return products
