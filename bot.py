@@ -240,15 +240,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         product_name = choice.replace("buy_", "")
         print(f"محصول انتخاب‌شده برای خرید: {product_name}")
         context.user_data["selected_product"] = product_name
-        await query.edit_message_text(
-            "لطفاً مشخصات و آدرس رو وارد کن:\n"
-            "نام و نام خانوادگی:\n"
-            "شماره تلفن:\n"
-            "استان:\n"
-            "شهر:\n"
-            "آدرس:\n"
-            "کدپستی:\n"
-            "هر خط یه بخش رو پر کن و بفرست."
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="لطفاً مشخصات و آدرس رو وارد کن:\n"
+                 "نام و نام خانوادگی:\n"
+                 "شماره تلفن:\n"
+                 "استان:\n"
+                 "شهر:\n"
+                 "آدرس:\n"
+                 "کدپستی:\n"
+                 "هر خط یه بخش رو پر کن و بفرست."
         )
         context.user_data["awaiting_address"] = True
         print("پیام درخواست آدرس ارسال شد")
