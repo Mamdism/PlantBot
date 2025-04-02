@@ -375,7 +375,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print(f"پیام ادمین به کاربر {target_user_id} ارسال شد")
         else:
             print(f"پیام از ادمین بود، اما user_id پیدا نشد")
-            await update.message.reply_text("کاربر مشخص نیست! لطفاً اول یه کاربر رو انتخاب کن یا صبر کن تا کاربر پیام بفرسته.")
+            await update.message.reply_text("کاربر مشخص نیست! از دستور /send <user_id> <متن> استفاده کن.")
         return
     
     if context.user_data.get("awaiting_address", False):
@@ -505,6 +505,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pending_type = context.user_data.get("pending_type")
         await update.message.reply_text("ممنونم از پرداختت، وضعیت سفارشت یا ویزیتت در حال بررسیه، بزودی پاسخ نهایی برات ارسال می‌شه 🌱")
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"رسید پرداخت از کاربر با آیدی: {user_id} (نوع: {pending_type})\nبرای پاسخ به کاربر از دستور زیر استفاده کن:\n/send {user_id} <متن>"
+        )
         print(f"رسید پرداخت به ادمین فوروارد شد (نوع: {pending_type})")
         context.user_data["awaiting_receipt"] = False
     elif context.user_data.get("section") in ["treatment", "care"]:
@@ -544,11 +548,12 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
             visit_info = context.user_data["visit_home_info"]
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
-                text=f"درخواست ویزیت حضوری:\n"
+                text=f"درخواست ویزیت حضوری از کاربر با آیدی: {user_id}\n"
                      f"تعداد گیاهان و توضیحات: {visit_info['plants']}\n"
                      f"نام: {visit_info['name']}\n"
                      f"شماره: {visit_info['phone']}\n"
-                     f"آدرس: {visit_info['address']}"
+                     f"آدرس: {visit_info['address']}\n"
+                     f"برای پاسخ به کاربر از دستور زیر استفاده کن:\n/send {user_id} <متن>"
             )
             await context.bot.send_location(
                 chat_id=ADMIN_ID,
@@ -559,12 +564,39 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             print(f"خطا در ارسال اطلاعات و لوکیشن به ادمین: {e}")
 
+# دستور برای ارسال پیام به کاربر توسط ادمین
+async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if str(user_id) != ADMIN_ID:
+        await update.message.reply_text("فقط ادمین می‌تونه از این دستور استفاده کنه!")
+        return
+    
+    try:
+        args = context.args
+        if len(args) < 2:
+            await update.message.reply_text("لطفاً از فرمت درست استفاده کن: /send <user_id> <متن>")
+            return
+        
+        target_user_id = args[0]
+        message_text = " ".join(args[1:])
+        
+        await context.bot.send_message(
+            chat_id=target_user_id,
+            text=message_text
+        )
+        await update.message.reply_text(f"پیام به کاربر {target_user_id} ارسال شد!")
+        print(f"پیام ادمین به کاربر {target_user_id} ارسال شد")
+    except Exception as e:
+        await update.message.reply_text(f"خطا در ارسال پیام: {str(e)}")
+        print(f"خطا در ارسال پیام به کاربر: {e}")
+
 # اجرای ربات
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", back_to_menu))
+    app.add_handler(CommandHandler("send", send_message))  # اضافه کردن دستور جدید
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
