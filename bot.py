@@ -128,7 +128,14 @@ async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("کارت به کارت", callback_data="pay_card")]
     ]
     await update.message.reply_text(receipt, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-    print("رسید با موفقیت ارسال شد")
+    print("رسید با موفقیت به کاربر ارسال شد")
+    # ارسال اطلاعات به ادمین
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=f"سفارش جدید:\n{receipt}",
+        parse_mode="Markdown"
+    )
+    print("رسید برای ادمین ارسال شد")
 
 # شروع ربات
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -269,6 +276,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=f"لطفاً مبلغ رو به این کارت واریز کن و رسیدش رو بفرست:\n{CARD_INFO}"
         )
         context.user_data["awaiting_receipt"] = True
+        print("منتظر دریافت عکس رسید از کاربر")
     elif choice == "back_to_main":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -312,11 +320,37 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if user_id == int(ADMIN_ID):
         target_user_id = context.bot_data.get("last_user_id")
-        if target_user_id:
-            await context.bot.send_message(chat_id=target_user_id, text=update.message.text)
-            await update.message.reply_text("جوابت برای کاربر فرستاده شد!")
+        if target_user_id and context.user_data.get("awaiting_receipt"):
+            text = update.message.text.strip()
+            category = context.user_data.get("selected_category")
+            product_name = context.user_data.get("selected_product")
+            
+            if text.startswith("تایید"):
+                category_messages = {
+                    "گیاهان": f"گیاه جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                    "خاک": f"خاک جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                    "گلدان": f"گلدان جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                    "بذر": f"بذر جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                    "کود": f"کود جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                    "ملزومات باغبانی": f"ابزار جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟"
+                }
+                message = category_messages.get(category, f"خریدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟")
+                await context.bot.send_message(chat_id=target_user_id, text=message)
+                await update.message.reply_text(f"سفارش '{product_name}' تایید شد و پیام به کاربر ارسال شد.")
+                context.user_data["awaiting_receipt"] = False
+            elif text.startswith("تایید نشد"):
+                reason = text.replace("تایید نشد", "").strip() or "دلیل مشخص نشده"
+                await context.bot.send_message(
+                    chat_id=target_user_id,
+                    text=f"سفارشت تایید نشد.\nدلیل: {reason}\nسوالی داری ازم بپرس؟"
+                )
+                await update.message.reply_text(f"سفارش '{product_name}' تایید نشد و دلیل به کاربر ارسال شد.")
+                context.user_data["awaiting_receipt"] = False
+            else:
+                await context.bot.send_message(chat_id=target_user_id, text=text)
+                await update.message.reply_text("جوابت برای کاربر فرستاده شد!")
         else:
-            await update.message.reply_text("کاربری پیدا نشد! اول باید یه کاربر پیام بفرسته.")
+            await update.message.reply_text("کاربری پیدا نشد یا در حال انتظار رسید نیست!")
     elif user_id != int(ADMIN_ID):
         context.bot_data["last_user_id"] = user_id
         print(f"آیدی کاربر ذخیره شد: {user_id}")
@@ -371,9 +405,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if context.user_data.get("awaiting_receipt", False):
-        await update.message.reply_text("رسیدت رو گرفتم! سفارش در حال بررسیه.")
-        context.user_data["awaiting_receipt"] = False
+        await update.message.reply_text("رسیدت رو گرفتم! منتظر تایید ادمین باش.")
+        context.user_data["awaiting_receipt"] = True  # همچنان منتظر تایید ادمین
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
+        print("عکس رسید برای ادمین فوروارد شد")
     elif user_id != int(ADMIN_ID):
         context.bot_data["last_user_id"] = user_id
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
