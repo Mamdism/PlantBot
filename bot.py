@@ -92,7 +92,7 @@ async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
         print(f"خطا در خوندن فایل JSON: {e}")
         return []
 
-# نمایش رسید
+# نمایش رسید خرید محصول
 async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("ورود به تابع show_receipt")
     product_name = context.user_data.get("selected_product")
@@ -129,12 +129,7 @@ async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text(receipt, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
     print("رسید با موفقیت به کاربر ارسال شد")
-    # ارسال اطلاعات به ادمین
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"سفارش جدید:\n{receipt}",
-        parse_mode="Markdown"
-    )
+    await context.bot.send_message(chat_id=ADMIN_ID, text=f"سفارش جدید:\n{receipt}", parse_mode="Markdown")
     print("رسید برای ادمین ارسال شد")
 
 # شروع ربات
@@ -277,6 +272,62 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         context.user_data["awaiting_receipt"] = True
         print("منتظر دریافت عکس رسید از کاربر")
+    elif choice == "visit_home":
+        await query.edit_message_text(
+            "ویزیت حضوری:\n"
+            "موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
+            "بررسی کودهای مورد نیاز هم انجام می‌شه.\n\n"
+            "لطفاً تعداد گیاهان و توضیحات رو بنویس و بعد مشخصات و آدرس رو وارد کن:\n"
+            "نام و نام خانوادگی:\n"
+            "شماره تلفن:\n"
+            "آدرس:\n"
+            "هر خط یه بخش رو پر کن و بفرست."
+        )
+        context.user_data["section"] = "visit_home"
+        context.user_data["awaiting_visit_home_info"] = True
+    elif choice == "visit_home_location":
+        context.user_data["visit_home_info"]["location"] = update.callback_query.message.reply_to_message.location
+        await query.edit_message_text(
+            "ممنون! حالا بیعانه ۲۰۰ هزار تومان رو پرداخت کن:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_visit_home_gateway")],
+                [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
+            ])
+        )
+    elif choice == "pay_visit_home_gateway":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="درگاه پرداخت بزودی فعال می‌شه!"
+        )
+    elif choice == "pay_visit_home_card":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=f"لطفاً مبلغ ۲۰۰ هزار تومان رو به این کارت واریز کن و رسیدش رو بفرست:\n{CARD_INFO}"
+        )
+        context.user_data["awaiting_visit_home_receipt"] = True
+    elif choice == "visit_online":
+        await query.edit_message_text(
+            "ویزیت آنلاین:\n"
+            "موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
+            "بررسی کودهای مورد نیاز هم انجام می‌شه.\n\n"
+            "لطفاً تعداد گیاهان و توضیحات رو بنویس و بعد مشخصات رو وارد کن:\n"
+            "نام و نام خانوادگی:\n"
+            "شماره تلفن:\n"
+            "هر خط یه بخش رو پر کن و بفرست."
+        )
+        context.user_data["section"] = "visit_online"
+        context.user_data["awaiting_visit_online_info"] = True
+    elif choice == "pay_visit_online_gateway":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="درگاه پرداخت بزودی فعال می‌شه!"
+        )
+    elif choice == "pay_visit_online_card":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=f"لطفاً مبلغ ۲۵۰ هزار تومان رو به این کارت واریز کن و رسیدش رو بفرست:\n{CARD_INFO}"
+        )
+        context.user_data["awaiting_visit_online_receipt"] = True
     elif choice == "back_to_main":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -312,47 +363,122 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["awaiting_address"] = False
             print("آدرس با موفقیت ذخیره شد:")
             print(context.user_data["address"])
-            print("در حال نمایش رسید...")
             await show_receipt(update, context)
         else:
             await update.message.reply_text("لطفاً همه‌ی اطلاعات رو توی ۶ خط بفرست!")
         return
     
+    if context.user_data.get("awaiting_visit_home_info", False):
+        text = update.message.text.split("\n")
+        print(f"اطلاعات ویزیت حضوری دریافت‌شده: {text}")
+        if len(text) >= 3:
+            context.user_data["visit_home_info"] = {
+                "plants": text[0],
+                "name": text[1],
+                "phone": text[2],
+                "address": "\n".join(text[3:]) if len(text) > 3 else ""
+            }
+            context.user_data["awaiting_visit_home_info"] = False
+            await update.message.reply_text(
+                "ممنون! حالا لطفاً لوکیشن رو بفرست:",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ارسال لوکیشن", callback_data="visit_home_location")]])
+            )
+        else:
+            await update.message.reply_text("لطفاً تعداد گیاهان، نام، شماره و آدرس رو توی حداقل ۳ خط بفرست!")
+        return
+    
+    if context.user_data.get("awaiting_visit_online_info", False):
+        text = update.message.text.split("\n")
+        print(f"اطلاعات ویزیت آنلاین دریافت‌شده: {text}")
+        if len(text) >= 2:
+            context.user_data["visit_online_info"] = {
+                "plants": text[0],
+                "name": text[1],
+                "phone": text[2] if len(text) > 2 else ""
+            }
+            context.user_data["awaiting_visit_online_info"] = False
+            await update.message.reply_text(
+                "ممنون! حالا مبلغ ۲۵۰ هزار تومان رو پرداخت کن:",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_visit_online_gateway")],
+                    [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_online_card")]
+                ])
+            )
+        else:
+            await update.message.reply_text("لطفاً تعداد گیاهان، نام و شماره رو توی حداقل ۲ خط بفرست!")
+        return
+    
     if user_id == int(ADMIN_ID):
-        target_user_id = context.bot_data.get("last_user_id")
-        if target_user_id and context.user_data.get("awaiting_receipt"):
+        if update.message.reply_to_message and update.message.reply_to_message.forward_from:
+            target_user_id = update.message.reply_to_message.forward_from.id
             text = update.message.text.strip()
-            category = context.user_data.get("selected_category")
-            product_name = context.user_data.get("selected_product")
             
-            if text.startswith("تایید"):
-                category_messages = {
-                    "گیاهان": f"گیاه جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                    "خاک": f"خاک جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                    "گلدان": f"گلدان جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                    "بذر": f"بذر جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                    "کود": f"کود جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                    "ملزومات باغبانی": f"ابزار جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟"
-                }
-                message = category_messages.get(category, f"خریدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟")
-                await context.bot.send_message(chat_id=target_user_id, text=message)
-                await update.message.reply_text(f"سفارش '{product_name}' تایید شد و پیام به کاربر ارسال شد.")
-                context.user_data["awaiting_receipt"] = False
-            elif text.startswith("تایید نشد"):
-                reason = text.replace("تایید نشد", "").strip() or "دلیل مشخص نشده"
-                await context.bot.send_message(
-                    chat_id=target_user_id,
-                    text=f"سفارشت تایید نشد.\nدلیل: {reason}\nسوالی داری ازم بپرس؟"
-                )
-                await update.message.reply_text(f"سفارش '{product_name}' تایید نشد و دلیل به کاربر ارسال شد.")
-                context.user_data["awaiting_receipt"] = False
+            if context.user_data.get("awaiting_receipt", False):
+                category = context.user_data.get("selected_category")
+                product_name = context.user_data.get("selected_product")
+                if text.startswith("تایید"):
+                    category_messages = {
+                        "گیاهان": "گیاه جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                        "خاک": "خاک جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                        "گلدان": "گلدان جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                        "بذر": "بذر جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                        "کود": "کود جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
+                        "ملزومات باغبانی": "ابزار جدیدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟"
+                    }
+                    message = category_messages.get(category, "خریدت مبارکت باشه! سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟")
+                    await context.bot.send_message(chat_id=target_user_id, text=message)
+                    await update.message.reply_text(f"سفارش '{product_name}' تایید شد و پیام به کاربر ارسال شد.")
+                    context.user_data["awaiting_receipt"] = False
+                elif text.startswith("تایید نشد"):
+                    reason = text.replace("تایید نشد", "").strip() or "دلیل مشخص نشده"
+                    await context.bot.send_message(
+                        chat_id=target_user_id,
+                        text=f"سفارشت تایید نشد.\nدلیل: {reason}\nسوالی داری ازم بپرس؟"
+                    )
+                    await update.message.reply_text(f"سفارش '{product_name}' تایید نشد و دلیل به کاربر ارسال شد.")
+                    context.user_data["awaiting_receipt"] = False
+            
+            elif context.user_data.get("awaiting_visit_home_receipt", False):
+                if text.startswith("تایید"):
+                    await context.bot.send_message(
+                        chat_id=target_user_id,
+                        text="رزرو وقت ویزیت حضوری برای شما با موفقیت انجام شد و بزودی با شما تماس گرفته خواهد شد.\nسوالی داری ازم بپرس؟"
+                    )
+                    await update.message.reply_text("ویزیت حضوری تایید شد و پیام به کاربر ارسال شد.")
+                    context.user_data["awaiting_visit_home_receipt"] = False
+                elif text.startswith("تایید نشد"):
+                    reason = text.replace("تایید نشد", "").strip() or "دلیل مشخص نشده"
+                    await context.bot.send_message(
+                        chat_id=target_user_id,
+                        text=f"رزرو ویزیت حضوری شما تایید نشد.\nدلیل: {reason}\nسوالی داری ازم بپرس؟"
+                    )
+                    await update.message.reply_text("ویزیت حضوری تایید نشد و دلیل به کاربر ارسال شد.")
+                    context.user_data["awaiting_visit_home_receipt"] = False
+            
+            elif context.user_data.get("awaiting_visit_online_receipt", False):
+                if text.startswith("تایید"):
+                    await context.bot.send_message(
+                        chat_id=target_user_id,
+                        text="رزرو وقت ویزیت آنلاین برای شما با موفقیت انجام شد و بزودی با شما تماس گرفته خواهد شد.\nسوالی داری ازم بپرس؟"
+                    )
+                    await update.message.reply_text("ویزیت آنلاین تایید شد و پیام به کاربر ارسال شد.")
+                    context.user_data["awaiting_visit_online_receipt"] = False
+                elif text.startswith("تایید نشد"):
+                    reason = text.replace("تایید نشد", "").strip() or "دلیل مشخص نشده"
+                    await context.bot.send_message(
+                        chat_id=target_user_id,
+                        text=f"رزرو ویزیت آنلاین شما تایید نشد.\nدلیل: {reason}\nسوالی داری ازم بپرس؟"
+                    )
+                    await update.message.reply_text("ویزیت آنلاین تایید نشد و دلیل به کاربر ارسال شد.")
+                    context.user_data["awaiting_visit_online_receipt"] = False
+            
             else:
                 await context.bot.send_message(chat_id=target_user_id, text=text)
                 await update.message.reply_text("جوابت برای کاربر فرستاده شد!")
         else:
-            await update.message.reply_text("کاربری پیدا نشد یا در حال انتظار رسید نیست!")
+            await update.message.reply_text("لطفاً به پیام کاربر ریپلای کن تا جواب براش بره!")
     elif user_id != int(ADMIN_ID):
-        context.bot_data["last_user_id"] = user_id
+        context.user_data["user_id"] = user_id
         print(f"آیدی کاربر ذخیره شد: {user_id}")
         
         if section in ["treatment", "care"]:
@@ -401,16 +527,41 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
             await update.message.reply_text("پیامت رو برای ادمین فرستادم، لطفاً منتظر باش!")
 
-# مدیریت عکس‌ها
+# مدیریت عکس‌ها و لوکیشن
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+    context.user_data["user_id"] = user_id
+    print(f"آیدی کاربر ذخیره شد: {user_id}")
+    
     if context.user_data.get("awaiting_receipt", False):
         await update.message.reply_text("رسیدت رو گرفتم! منتظر تایید ادمین باش.")
-        context.user_data["awaiting_receipt"] = True  # همچنان منتظر تایید ادمین
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
-        print("عکس رسید برای ادمین فوروارد شد")
+        print("عکس رسید خرید برای ادمین فوروارد شد")
+    elif context.user_data.get("awaiting_visit_home_receipt", False):
+        await update.message.reply_text("رسید بیعانه رو گرفتم! منتظر تایید ادمین باش.")
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"رسید بیعانه ویزیت حضوری:\n"
+                 f"تعداد گیاهان و توضیحات: {context.user_data['visit_home_info']['plants']}\n"
+                 f"نام: {context.user_data['visit_home_info']['name']}\n"
+                 f"شماره: {context.user_data['visit_home_info']['phone']}\n"
+                 f"آدرس: {context.user_data['visit_home_info']['address']}\n"
+                 f"لوکیشن: ({context.user_data['visit_home_info']['location'].latitude}, {context.user_data['visit_home_info']['location'].longitude})"
+        )
+        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
+        print("عکس رسید ویزیت حضوری برای ادمین فوروارد شد")
+    elif context.user_data.get("awaiting_visit_online_receipt", False):
+        await update.message.reply_text("رسیدت رو گرفتم! منتظر تایید ادمین باش.")
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"رسید ویزیت آنلاین:\n"
+                 f"تعداد گیاهان و توضیحات: {context.user_data['visit_online_info']['plants']}\n"
+                 f"نام: {context.user_data['visit_online_info']['name']}\n"
+                 f"شماره: {context.user_data['visit_online_info']['phone']}"
+        )
+        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
+        print("عکس رسید ویزیت آنلاین برای ادمین فوروارد شد")
     elif user_id != int(ADMIN_ID):
-        context.bot_data["last_user_id"] = user_id
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
         await update.message.reply_text("عکس رو گرفتم! منتظر جواب متخصص باش.")
         if context.user_data.get("section") in ["treatment", "care"]:
@@ -418,12 +569,25 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             conversation.append({"role": "user", "content": "کاربر یک عکس از گیاهش فرستاده است."})
             context.user_data["conversation"] = conversation
     else:
-        target_user_id = context.bot_data.get("last_user_id")
+        target_user_id = context.user_data.get("user_id")
         if target_user_id:
             await context.bot.send_photo(chat_id=target_user_id, photo=update.message.photo[-1].file_id, caption=update.message.caption or "")
             await update.message.reply_text("عکست برای کاربر فرستاده شد!")
         else:
             await update.message.reply_text("کاربری پیدا نشد!")
+
+async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    context.user_data["user_id"] = user_id
+    if context.user_data.get("section") == "visit_home" and "visit_home_info" in context.user_data:
+        context.user_data["visit_home_info"]["location"] = update.message.location
+        await update.message.reply_text(
+            "ممنون! حالا بیعانه ۲۰۰ هزار تومان رو پرداخت کن:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_visit_home_gateway")],
+                [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
+            ])
+        )
 
 # اجرای ربات
 def main():
@@ -433,6 +597,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"یه خطا پیش اومد: {context.error}")
