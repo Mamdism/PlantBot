@@ -48,6 +48,21 @@ def get_users():
             return json.load(f)
     return {}
 
+# ماژول جدید برای مدیریت پاسخ ادمین
+async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.message.from_user.id) != ADMIN_ID:
+        return  # فقط ادمین می‌تونه جواب بده
+    
+    if update.message.reply_to_message and update.message.reply_to_message.forward_from:
+        target_user_id = update.message.reply_to_message.forward_from.id
+        await context.bot.send_message(
+            chat_id=target_user_id,
+            text=update.message.text
+        )
+        print(f"پاسخ ادمین به کاربر {target_user_id} ارسال شد")
+    else:
+        await update.message.reply_text("لطفاً روی پیام فوروارد‌شده از کاربر ریپلای کن!")
+
 # منوی اصلی
 def main_menu():
     keyboard = [
@@ -402,20 +417,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     section = context.user_data.get("section", None)
     print(f"متن دریافت‌شده: {update.message.text}")
     
-    # اگه پیام از ادمین باشه و user_id ذخیره شده باشه، به کاربر بفرست
-    if str(user_id) == ADMIN_ID:
-        target_user_id = context.user_data.get("user_id")
-        if target_user_id:
-            await context.bot.send_message(
-                chat_id=target_user_id,
-                text=update.message.text
-            )
-            print(f"پیام ادمین به کاربر {target_user_id} ارسال شد")
-        else:
-            print(f"پیام از ادمین بود، اما user_id پیدا نشد")
-            await update.message.reply_text("کاربر مشخص نیست! از دستور /send <user_id> <متن> استفاده کن.")
-        return
-    
     if context.user_data.get("awaiting_address", False):
         text = update.message.text.split("\n")
         print(f"اطلاعات آدرس دریافت‌شده: {text}")
@@ -477,6 +478,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if section in ["treatment", "care"]:
+        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
+        print(f"متن به ادمین فوروارد شد (بخش: {section})")
+        
         if context.user_data.get("first_message", True):
             loading_msg = await update.message.reply_text("یه لحظه صبر کن، دارم فکر می‌کنم! 🌱")
             context.user_data["first_message"] = False
@@ -491,24 +495,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             شما یک متخصص گیاه‌شناسی بسیار آگاه و با تجربه هستید که دانش عمیقی در زمینه‌های مختلف گیاهان از جمله گیاهان آپارتمانی، گیاهان دارویی، گیاهان کشاورزی، درختان، گل‌ها و سایر انواع گیاهان دارید. شما قادر به پاسخگویی دقیق و جامع به سوالات کاربران در مورد شناسایی گیاهان، نحوه نگهداری صحیح، مشکلات و بیماری‌های گیاهان، روش‌های تکثیر، خواص گیاهان دارویی و هر موضوع مرتبط دیگر هستید.
 
             اصول پاسخگویی شما:
-            - دقت و صحت: همواره پاسخ‌های دقیق و مبتنی بر دانش علمی ارائه دهید. از ارائه اطلاعات نادرست یا غیرمطمئن خودداری کنید.
-            - جامعیت: سعی کنید تا حد امکان تمام جوانب سوال کاربر را پوشش دهید و اطلاعات کاملی ارائه کنید.
-            - وضوح و سادگی: از زبانی ساده و قابل فهم برای کاربر استفاده کنید، حتی اگر موضوع پیچیده باشد. اصطلاحات تخصصی را در صورت نیاز توضیح دهید.
-            - راهنمایی عملی: علاوه بر ارائه اطلاعات نظری، راهکارهای عملی و قابل اجرا برای حل مشکلات یا بهبود شرایط گیاهان ارائه دهید.
-            - توجه به جزئیات: به جزئیات مطرح شده توسط کاربر توجه کنید و پاسخ خود را بر اساس اطلاعات ارائه شده تنظیم کنید.
-            - پرسش‌های تکمیلی: در صورت نیاز برای درک بهتر سوال کاربر، سوالات تکمیلی بپرسید.
-            - احتیاط در تشخیص بیماری از طریق متن: به کاربر یادآوری کنید که تشخیص دقیق بیماری گیاه بدون مشاهده مستقیم ممکن نیست و توضیحات شما بر اساس اطلاعات ارائه شده است. در صورت امکان، توصیه کنید برای تشخیص دقیق‌تر به یک متخصص گیاه‌شناسی مراجعه کنند.
-            - لحن دوستانه و کمک‌کننده: با لحنی صمیمی و مشتاق به کمک پاسخ دهید تا کاربر احساس راحتی کند.
-            - پاسخ‌ها خلاصه‌تر باشن، ولی خیلی کوتاه نباشن و اطلاعات کامل بمونه.
+            - دقت و صحت: همواره پاسخ‌های دقیق و مبتنی بر دانش علمی ارائه دهید.
+            - جامعیت: تمام جوانب سوال کاربر را پوشش دهید.
+            - وضوح و سادگی: از زبانی ساده و قابل فهم استفاده کنید.
+            - راهنمایی عملی: راهکارهای عملی و قابل اجرا ارائه دهید.
+            - توجه به جزئیات: به جزئیات مطرح‌شده توسط کاربر توجه کنید.
+            - پرسش‌های تکمیلی: در صورت نیاز سوالات تکمیلی بپرسید.
+            - احتیاط در تشخیص: یادآوری کنید که تشخیص دقیق بدون مشاهده مستقیم ممکن نیست.
+            - لحن دوستانه: با لحنی صمیمی و مشتاق به کمک پاسخ دهید.
             - از اموجی‌های مرتبط مثل 🌱، 💧، ☀️، 🐞 استفاده کن.
-
-            مثال‌هایی از نحوه پاسخگویی:
-            سوال: برگ‌های گیاه آپارتمانی من زرد شده‌اند، علت چیست؟
-            پاسخ: زرد شدن برگ‌ها می‌تونه از آبیاری زیاد 💧، نور کم ☀️ یا کمبود مواد مغذی باشه. نوع گیاهت چیه؟ چند وقت یه بار آب می‌دی؟ علائم دیگه‌ای هم داره؟
-            سوال: چگونه می‌توانم گیاه رزماری را تکثیر کنم؟
-            پاسخ: بهترین روش برای رزماری، قلمه زدنه 🌿. یه شاخه 10-15 سانتی‌متری ببر، برگ‌های پایینش رو جدا کن و توی خاک یا آب بذار تا ریشه بده. بعد بکارش توی گلدون!
-            سوال: خواص دارویی گیاه اسطوخودوس چیست؟
-            پاسخ: اسطوخودوس برای کاهش استرس 😌، بهبود خواب 💤 و تسکین سردرد خوبه. از اسانسش برای آروماتراپی یا دمنوش استفاده می‌شه. قبلش با پزشک مشورت کن!
 
             کاربر در مورد {section} گیاهش داره حرف می‌زنه.
             {f"دسته‌بندی گیاه: {context.user_data.get('care_category', 'مشخص نشده')}" if section == "care" else ""}
@@ -540,11 +535,11 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if context.user_data.get("awaiting_receipt", False):
         pending_type = context.user_data.get("pending_type")
-        await update.message.reply_text("ممنونم از پرداختت، وضعیت سفارشت یا ویزیتت در حال بررسیه، بزودی پاسخ نهایی برات ارسال می‌شه 🌱")
+        await update.message.reply_text("سفارش شما ثبت شد و در حال بررسی می‌باشد 🌱")
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"رسید پرداخت از کاربر با آیدی: {user_id} (نوع: {pending_type})\nبرای پاسخ به کاربر از دستور زیر استفاده کن:\n/send {user_id} <متن>"
+            text=f"رسید پرداخت از کاربر با آیدی: {user_id} (نوع: {pending_type})"
         )
         print(f"رسید پرداخت به ادمین فوروارد شد (نوع: {pending_type})")
         context.user_data["awaiting_receipt"] = False
@@ -587,8 +582,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f"تعداد گیاهان و توضیحات: {visit_info['plants']}\n"
                      f"نام: {visit_info['name']}\n"
                      f"شماره: {visit_info['phone']}\n"
-                     f"آدرس: {visit_info['address']}\n"
-                     f"برای پاسخ به کاربر از دستور زیر استفاده کن:\n/send {user_id} <متن>"
+                     f"آدرس: {visit_info['address']}"
             )
             await context.bot.send_location(
                 chat_id=ADMIN_ID,
@@ -606,49 +600,18 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_user(user_id, contact)
     await update.message.reply_text("ممنون! حالا ثبت شدی 🌱 یه گزینه انتخاب کن:", reply_markup=main_menu())
 
-# دستور برای ارسال پیام به کاربر توسط ادمین
-async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if str(user_id) != ADMIN_ID:
-        await update.message.reply_text("فقط ادمین می‌تونه از این دستور استفاده کنه!")
-        return
-    
-    try:
-        args = context.args
-        if len(args) < 2:
-            await update.message.reply_text("لطفاً از فرمت درست استفاده کن: /send <user_id> <متن>")
-            return
-        
-        target_user_id = args[0]
-        message_text = " ".join(args[1:])
-        
-        users = get_users()
-        if target_user_id not in users:
-            await update.message.reply_text(f"کاربر با آیدی {target_user_id} پیدا نشد!")
-            return
-        
-        await context.bot.send_message(
-            chat_id=target_user_id,
-            text=message_text
-        )
-        await update.message.reply_text(f"پیام به کاربر {target_user_id} ارسال شد!")
-        print(f"پیام ادمین به کاربر {target_user_id} ارسال شد")
-    except Exception as e:
-        await update.message.reply_text(f"خطا در ارسال پیام: {str(e)}")
-        print(f"خطا در ارسال پیام به کاربر: {e}")
-
 # اجرای ربات
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", back_to_menu))
-    app.add_handler(CommandHandler("send", send_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+    app.add_handler(MessageHandler(filters.REPLY & filters.TEXT, handle_admin_reply))  # ماژول پاسخ ادمین
     
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"یه خطا پیش اومد: {context.error}")
