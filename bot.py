@@ -71,7 +71,7 @@ def products_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# گرفتن محصولات از کانال
+# گرفتن محصولات از کانال (بدون عکس)
 async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
     products = []
     print(f"در حال بررسی کانال {CHANNEL_ID} برای دسته‌بندی: {category}")
@@ -88,9 +88,9 @@ async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
     if data.get("ok"):
         messages = data["result"]["messages"]
         for message in messages:
-            print(f"پیام پیدا شد: text={message.get('text')}, photo={bool(message.get('photo'))}")
-            if message.get("text") and message.get("photo"):
-                print(f"پست با متن و عکس پیدا شد: {message['text']}")
+            print(f"پیام پیدا شد: text={message.get('text')}")
+            if message.get("text"):
+                print(f"پست با متن پیدا شد: {message['text']}")
                 lines = message["text"].split('\n')
                 product = {}
                 for line in lines:
@@ -107,7 +107,6 @@ async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
                         product["stock"] = int(line.split(":")[1].strip())
                     elif "قیمت:" in line:
                         product["price"] = int(line.split(":")[1].strip().replace(" تومان", ""))
-                product["photo"] = message["photo"][-1]["file_id"]
                 if product.get("category") == category:
                     products.append(product)
                     print(f"محصول اضافه شد: {product}")
@@ -234,10 +233,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                        f"تعداد موجود: {product['stock']}\n"
                        f"**قیمت: {product['price']} تومان**")
             keyboard = [[InlineKeyboardButton("خرید", callback_data=f"buy_{product['name']}")]]
-            await context.bot.send_photo(
+            await context.bot.send_message(
                 chat_id=query.message.chat_id,
-                photo=product["photo"],
-                caption=caption,
+                text=caption,
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode="Markdown"
             )
