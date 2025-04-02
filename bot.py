@@ -94,9 +94,19 @@ async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
 
 # نمایش رسید
 async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    product_name = context.user_data["selected_product"]
-    products = await fetch_products(context, context.user_data["selected_category"])
-    product = next(p for p in products if p["name"] == product_name)
+    print("ورود به تابع show_receipt")
+    product_name = context.user_data.get("selected_product")
+    print(f"محصول انتخاب‌شده: {product_name}")
+    category = context.user_data.get("selected_category")
+    print(f"دسته‌بندی انتخاب‌شده: {category}")
+    products = await fetch_products(context, category)
+    try:
+        product = next(p for p in products if p["name"] == product_name)
+        print(f"محصول پیدا شده: {product}")
+    except StopIteration:
+        print(f"خطا: محصول {product_name} توی دسته‌بندی {category} پیدا نشد!")
+        await update.message.reply_text("مشکلی پیش اومد! محصول پیدا نشد.")
+        return
     
     receipt = (f"رسید خرید:\n"
                f"محصول: {product_name}\n"
@@ -113,6 +123,7 @@ async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("کارت به کارت", callback_data="pay_card")]
     ]
     await update.message.reply_text(receipt, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    print("رسید با موفقیت ارسال شد")
 
 # شروع ربات
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -123,6 +134,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     choice = query.data
+    print(f"دکمه زده شده: {choice}")
     
     if choice == "treatment":
         await query.edit_message_text("لطفاً نوع گیاهت یا مشکلی که داره رو توضیح بده و اگه می‌تونی یه عکس بفرست!")
@@ -226,6 +238,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
     elif choice.startswith("buy_"):
         product_name = choice.replace("buy_", "")
+        print(f"محصول انتخاب‌شده برای خرید: {product_name}")
         context.user_data["selected_product"] = product_name
         await query.edit_message_text(
             "لطفاً مشخصات و آدرس رو وارد کن:\n"
@@ -238,6 +251,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "هر خط یه بخش رو پر کن و بفرست."
         )
         context.user_data["awaiting_address"] = True
+        print("پیام درخواست آدرس ارسال شد")
     elif choice == "pay_gateway":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -267,9 +281,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
     section = context.user_data.get("section", None)
+    print(f"متن دریافت‌شده: {update.message.text}")
     
     if context.user_data.get("awaiting_address", False):
         text = update.message.text.split("\n")
+        print(f"اطلاعات آدرس دریافت‌شده: {text}")
         if len(text) == 6:
             context.user_data["address"] = {
                 "name": text[0],
@@ -280,6 +296,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "postal_code": text[5]
             }
             context.user_data["awaiting_address"] = False
+            print("آدرس ذخیره شد، در حال نمایش رسید...")
             await show_receipt(update, context)
         else:
             await update.message.reply_text("لطفاً همه‌ی اطلاعات رو توی ۶ خط بفرست!")
