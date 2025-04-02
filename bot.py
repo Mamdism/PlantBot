@@ -375,6 +375,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print(f"پیام ادمین به کاربر {target_user_id} ارسال شد")
         else:
             print(f"پیام از ادمین بود، اما user_id پیدا نشد")
+            await update.message.reply_text("کاربر مشخص نیست! لطفاً اول یه کاربر رو انتخاب کن یا صبر کن تا کاربر پیام بفرسته.")
         return
     
     if context.user_data.get("awaiting_address", False):
