@@ -79,30 +79,31 @@ async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
     # گرفتن آپدیت‌ها از تلگرام
     updates = await context.bot.get_updates()
     for update in updates:
-        if update.channel_post and str(update.channel_post.chat_id) == CHANNEL_ID:
+        if hasattr(update, 'channel_post') and update.channel_post:
             message = update.channel_post
-            print(f"پیام پیدا شد: text={message.text}")
-            if message.text:
-                print(f"پست با متن پیدا شد: {message.text}")
-                lines = message.text.split('\n')
-                product = {}
-                for line in lines:
-                    print(f"خط در حال بررسی: {line}")
-                    if "دسته‌بندی:" in line:
-                        product["category"] = line.split(":")[1].strip()
-                    elif "نام:" in line:
-                        product["name"] = line.split(":")[1].strip()
-                    elif "سایز:" in line:
-                        product["size"] = line.split(":")[1].strip()
-                    elif "رنگ:" in line:
-                        product["color"] = line.split(":")[1].strip()
-                    elif "تعداد:" in line:
-                        product["stock"] = int(line.split(":")[1].strip())
-                    elif "قیمت:" in line:
-                        product["price"] = int(line.split(":")[1].strip().replace(" تومان", ""))
-                if product.get("category") == category:
-                    products.append(product)
-                    print(f"محصول اضافه شد: {product}")
+            if hasattr(message, 'chat_id') and str(message.chat_id) == CHANNEL_ID:
+                print(f"پیام پیدا شد: text={message.text}")
+                if message.text:
+                    print(f"پست با متن پیدا شد: {message.text}")
+                    lines = message.text.split('\n')
+                    product = {}
+                    for line in lines:
+                        print(f"خط در حال بررسی: {line}")
+                        if "دسته‌بندی:" in line:
+                            product["category"] = line.split(":")[1].strip()
+                        elif "نام:" in line:
+                            product["name"] = line.split(":")[1].strip()
+                        elif "سایز:" in line:
+                            product["size"] = line.split(":")[1].strip()
+                        elif "رنگ:" in line:
+                            product["color"] = line.split(":")[1].strip()
+                        elif "تعداد:" in line:
+                            product["stock"] = int(line.split(":")[1].strip())
+                        elif "قیمت:" in line:
+                            product["price"] = int(line.split(":")[1].strip().replace(" تومان", ""))
+                    if product.get("category") == category:
+                        products.append(product)
+                        print(f"محصول اضافه شد: {product}")
     
     print(f"تعداد محصولات پیدا شده: {len(products)}")
     return products
@@ -356,8 +357,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # اجرای ربات
 def main():
-    # تنظیم اندازه pool و timeout
-    app = Application.builder().token(BOT_TOKEN).connect_timeout(20).pool_timeout(20).build()
+    # تنظیم اندازه pool و timeout با مقادیر بزرگ‌تر
+    app = Application.builder().token(BOT_TOKEN).connect_timeout(30).pool_timeout(30).connection_pool_size(20).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
