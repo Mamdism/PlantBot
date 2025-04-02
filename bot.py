@@ -423,79 +423,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("لطفاً تعداد گیاهان، نام و شماره رو توی حداقل ۲ خط بفرست!")
         return
     
-    if user_id == int(ADMIN_ID):
-        if update.message.reply_to_message and hasattr(update.message.reply_to_message, "forward_from") and update.message.reply_to_message.forward_from:
-            target_user_id = update.message.reply_to_message.forward_from.id
-            text = update.message.text.strip()
-            
-            if context.user_data.get("awaiting_receipt", False):
-                pending_type = context.user_data.get("pending_type")
-                
-                if pending_type == "product":
-                    category = context.user_data.get("selected_category")
-                    product_name = context.user_data.get("selected_product")
-                    if text.startswith("تایید"):
-                        category_messages = {
-                            "گیاهان": "گیاه جدیدت مبارکت باشه! 🌱 سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                            "خاک": "خاک جدیدت مبارکت باشه! 🌿 سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                            "گلدان": "گلدان جدیدت مبارکت باشه! 🏺 سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                            "بذر": "بذر جدیدت مبارکت باشه! 🌾 سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                            "کود": "کود جدیدت مبارکت باشه! 💪 سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟",
-                            "ملزومات باغبانی": "ابزار جدیدت مبارکت باشه! 🛠️ سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟"
-                        }
-                        message = category_messages.get(category, "خریدت مبارکت باشه! 🎉 سفارشت با موفقیت ثبت شد.\nسوالی داری ازم بپرس؟")
-                        await context.bot.send_message(chat_id=target_user_id, text=message)
-                        await update.message.reply_text(f"سفارش '{product_name}' تایید شد و پیام به کاربر ارسال شد.")
-                        context.user_data["awaiting_receipt"] = False
-                    elif text.startswith("تایید نشد"):
-                        reason = text.replace("تایید نشد", "").strip() or "دلیل مشخص نشده"
-                        await context.bot.send_message(
-                            chat_id=target_user_id,
-                            text=f"سفارشت تایید نشد 😔\nدلیل: {reason}\nسوالی داری ازم بپرس؟"
-                        )
-                        await update.message.reply_text(f"سفارش '{product_name}' تایید نشد و دلیل به کاربر ارسال شد.")
-                        context.user_data["awaiting_receipt"] = False
-                
-                elif pending_type == "visit_home":
-                    if text.startswith("تایید"):
-                        await context.bot.send_message(
-                            chat_id=target_user_id,
-                            text="رزرو وقت ویزیت حضوری برای شما با موفقیت انجام شد 🌿 بزودی با شما تماس گرفته خواهد شد.\nسوالی داری ازم بپرس؟"
-                        )
-                        await update.message.reply_text("ویزیت حضوری تایید شد و پیام به کاربر ارسال شد.")
-                        context.user_data["awaiting_receipt"] = False
-                    elif text.startswith("تایید نشد"):
-                        reason = text.replace("تایید نشد", "").strip() or "دلیل مشخص نشده"
-                        await context.bot.send_message(
-                            chat_id=target_user_id,
-                            text=f"رزرو ویزیت حضوری شما تایید نشد 😔\nدلیل: {reason}\nسوالی داری ازم بپرس؟"
-                        )
-                        await update.message.reply_text("ویزیت حضوری تایید نشد و دلیل به کاربر ارسال شد.")
-                        context.user_data["awaiting_receipt"] = False
-                
-                elif pending_type == "visit_online":
-                    if text.startswith("تایید"):
-                        await context.bot.send_message(
-                            chat_id=target_user_id,
-                            text="رزرو وقت ویزیت آنلاین برای شما با موفقیت انجام شد 🌱 بزودی با شما تماس گرفته خواهد شد.\nسوالی داری ازم بپرس؟"
-                        )
-                        await update.message.reply_text("ویزیت آنلاین تایید شد و پیام به کاربر ارسال شد.")
-                        context.user_data["awaiting_receipt"] = False
-                    elif text.startswith("تایید نشد"):
-                        reason = text.replace("تایید نشد", "").strip() or "دلیل مشخص نشده"
-                        await context.bot.send_message(
-                            chat_id=target_user_id,
-                            text=f"رزرو ویزیت آنلاین شما تایید نشد 😔\nدلیل: {reason}\nسوالی داری ازم بپرس؟"
-                        )
-                        await update.message.reply_text("ویزیت آنلاین تایید نشد و دلیل به کاربر ارسال شد.")
-                        context.user_data["awaiting_receipt"] = False
-            
-            else:
-                await context.bot.send_message(chat_id=target_user_id, text=text)
-                await update.message.reply_text("جوابت برای کاربر فرستاده شد!")
-        else:
-            await update.message.reply_text("لطفاً به پیام فورواردشده کاربر ریپلای کن تا جواب براش بره!")
-    elif user_id != int(ADMIN_ID):
+    if user_id != int(ADMIN_ID):
         context.user_data["user_id"] = user_id
         print(f"آیدی کاربر ذخیره شد: {user_id}")
         
@@ -555,7 +483,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
             await update.message.reply_text("پیامت رو برای ادمین فرستادم، منتظر باش! 🌿")
 
-# مدیریت عکس‌ها و لوکیشن
+# مدیریت عکس‌ها
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     context.user_data["user_id"] = user_id
@@ -565,11 +493,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pending_type = context.user_data.get("pending_type")
         
         if pending_type == "product":
-            await update.message.reply_text("رسیدت رو گرفتم! منتظر تایید ادمین باش 🌱")
+            await update.message.reply_text("رسیدت رو گرفتم! منتظر جواب ادمین باش 🌱")
             await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
             print("عکس رسید خرید برای ادمین فوروارد شد")
+            context.user_data["awaiting_receipt"] = False
         elif pending_type == "visit_home":
-            await update.message.reply_text("رسید بیعانه رو گرفتم! منتظر تایید ادمین باش 🌿")
+            await update.message.reply_text("رسید بیعانه رو گرفتم! منتظر جواب ادمین باش 🌿")
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
                 text=f"رسید بیعانه ویزیت حضوری:\n"
@@ -581,8 +510,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
             print("عکس رسید ویزیت حضوری برای ادمین فوروارد شد")
+            context.user_data["awaiting_receipt"] = False
         elif pending_type == "visit_online":
-            await update.message.reply_text("رسیدت رو گرفتم! منتظر تایید ادمین باش 🌱")
+            await update.message.reply_text("رسیدت رو گرفتم! منتظر جواب ادمین باش 🌱")
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
                 text=f"رسید ویزیت آنلاین:\n"
@@ -592,7 +522,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
             print("عکس رسید ویزیت آنلاین برای ادمین فوروارد شد")
-    elif user_id != int(ADMIN_ID):
+            context.user_data["awaiting_receipt"] = False
+    else:
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
         await update.message.reply_text("عکس رو گرفتم! منتظر جواب متخصص باش 🌿")
         if context.user_data.get("section") in ["treatment", "care"]:
@@ -600,6 +531,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             conversation.append({"role": "user", "content": "کاربر یک عکس از گیاهش فرستاده است."})
             context.user_data["conversation"] = conversation
 
+# مدیریت لوکیشن
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     context.user_data["user_id"] = user_id
@@ -612,6 +544,13 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
             ])
         )
+        # ارسال لوکیشن به ادمین
+        await context.bot.send_location(
+            chat_id=ADMIN_ID,
+            latitude=update.message.location.latitude,
+            longitude=update.message.location.longitude
+        )
+        print("لوکیشن به ادمین ارسال شد")
 
 # اجرای ربات
 def main():
