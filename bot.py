@@ -4,7 +4,7 @@ import google.generativeai as genai
 import requests
 import json
 
-# آیدی عددی تلگرام ادمین (دیگه استفاده نمی‌شه ولی نگهش می‌دارم)
+# آیدی عددی تلگرام ادمین
 ADMIN_ID = "1478363268"
 
 # توکن ربات
@@ -364,6 +364,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     section = context.user_data.get("section", None)
     print(f"متن دریافت‌شده: {update.message.text}")
     
+    # اگه پیام از ادمین باشه، هیچ کاری نکن
+    if str(user_id) == ADMIN_ID:
+        print(f"پیام از ادمین ({user_id}) بود، نادیده گرفته شد")
+        return
+    
     if context.user_data.get("awaiting_address", False):
         text = update.message.text.split("\n")
         print(f"اطلاعات آدرس دریافت‌شده: {text}")
@@ -441,7 +446,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             اصول پاسخگویی شما:
             - دقت و صحت: همواره پاسخ‌های دقیق و مبتنی بر دانش علمی ارائه دهید. از ارائه اطلاعات نادرست یا غیرمطمئن خودداری کنید.
             - جامعیت: سعی کنید تا حد امکان تمام جوانب سوال کاربر را پوشش دهید و اطلاعات کاملی ارائه کنید.
-            - وضوح و سادگی: از زبانی ساده و قابل فهم برای کاربر استفاده کنید، حتی اگر موضوع پیچیده باشد. اصطلاحات تخصصی را در صورت نیاز توضیح دهید.
+            - وضوح و سادگی: از زبانی ساده و قابل فهم برای کاربر استفاده کنید، حتی اگر موضوع پیچیده باشد. اصطلاحات تخصصی را در صورت نیاز توضیح دهید。
             - راهنمایی عملی: علاوه بر ارائه اطلاعات نظری، راهکارهای عملی و قابل اجرا برای حل مشکلات یا بهبود شرایط گیاهان ارائه دهید.
             - توجه به جزئیات: به جزئیات مطرح شده توسط کاربر توجه کنید و پاسخ خود را بر اساس اطلاعات ارائه شده تنظیم کنید.
             - پرسش‌های تکمیلی: در صورت نیاز برای درک بهتر سوال کاربر، سوالات تکمیلی بپرسید.
@@ -479,6 +484,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # مدیریت عکس‌ها
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+    # اگه پیام از ادمین باشه، هیچ کاری نکن
+    if str(user_id) == ADMIN_ID:
+        print(f"عکس از ادمین ({user_id}) بود، نادیده گرفته شد")
+        return
+    
     context.user_data["user_id"] = user_id
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
@@ -504,6 +514,11 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # مدیریت لوکیشن
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+    # اگه پیام از ادمین باشه، هیچ کاری نکن
+    if str(user_id) == ADMIN_ID:
+        print(f"لوکیشن از ادمین ({user_id}) بود، نادیده گرفته شد")
+        return
+    
     context.user_data["user_id"] = user_id
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
@@ -516,16 +531,25 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
             ])
         )
-        # ارسال لوکیشن به ادمین
+        # ارسال اطلاعات و لوکیشن به ادمین
         try:
+            visit_info = context.user_data["visit_home_info"]
+            await context.bot.send_message(
+                chat_id=ADMIN_ID,
+                text=f"درخواست ویزیت حضوری:\n"
+                     f"تعداد گیاهان و توضیحات: {visit_info['plants']}\n"
+                     f"نام: {visit_info['name']}\n"
+                     f"شماره: {visit_info['phone']}\n"
+                     f"آدرس: {visit_info['address']}"
+            )
             await context.bot.send_location(
                 chat_id=ADMIN_ID,
                 latitude=update.message.location.latitude,
                 longitude=update.message.location.longitude
             )
-            print("لوکیشن با موفقیت به ادمین ارسال شد")
+            print("اطلاعات و لوکیشن با موفقیت به ادمین ارسال شد")
         except Exception as e:
-            print(f"خطا در ارسال لوکیشن به ادمین: {e}")
+            print(f"خطا در ارسال اطلاعات و لوکیشن به ادمین: {e}")
 
 # اجرای ربات
 def main():
