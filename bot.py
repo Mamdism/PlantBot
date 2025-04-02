@@ -2,6 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import google.generativeai as genai
 import requests
+import asyncio
 
 # آیدی عددی تلگرام ادمین
 ADMIN_ID = "1478363268"
@@ -76,12 +77,20 @@ async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
     products = []
     print(f"در حال بررسی کانال {CHANNEL_ID} برای دسته‌بندی: {category}")
     
+    # یه تأخیر کوچک برای کاهش فشار
+    await asyncio.sleep(1)
+    
     # گرفتن آپدیت‌ها از تلگرام
-    updates = await context.bot.get_updates()
+    try:
+        updates = await context.bot.get_updates()
+    except Exception as e:
+        print(f"خطا در گرفتن آپدیت‌ها: {e}")
+        return products
+    
     for update in updates:
-        if hasattr(update, 'channel_post') and update.channel_post:
+        if update and hasattr(update, 'channel_post') and update.channel_post is not None:
             message = update.channel_post
-            if hasattr(message, 'chat_id') and str(message.chat_id) == CHANNEL_ID:
+            if hasattr(message, 'chat_id') and message.chat_id is not None and str(message.chat_id) == CHANNEL_ID:
                 print(f"پیام پیدا شد: text={message.text}")
                 if message.text:
                     print(f"پست با متن پیدا شد: {message.text}")
@@ -358,7 +367,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # اجرای ربات
 def main():
     # تنظیم اندازه pool و timeout با مقادیر بزرگ‌تر
-    app = Application.builder().token(BOT_TOKEN).connect_timeout(30).pool_timeout(30).connection_pool_size(20).build()
+    app = Application.builder().token(BOT_TOKEN).connect_timeout(30).pool_timeout(30).connection_pool_size(50).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
