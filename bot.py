@@ -424,7 +424,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     if user_id == int(ADMIN_ID):
-        if update.message.reply_to_message and update.message.reply_to_message.forward_from:
+        if update.message.reply_to_message and hasattr(update.message.reply_to_message, "forward_from") and update.message.reply_to_message.forward_from:
             target_user_id = update.message.reply_to_message.forward_from.id
             text = update.message.text.strip()
             
