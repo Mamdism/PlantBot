@@ -356,7 +356,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # اجرای ربات
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    # تنظیم اندازه pool و timeout
+    app = Application.builder().token(BOT_TOKEN).connect_timeout(20).pool_timeout(20).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
