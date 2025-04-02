@@ -71,14 +71,18 @@ def products_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# گرفتن محصولات از کانال
+# گرفتن محصولات از کانال (با لاگ بیشتر)
 async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
     products = []
-    async for message in context.bot.get_chat_history(chat_id=CHANNEL_ID, limit=100):  # 100 پست آخر
+    print(f"در حال بررسی کانال {CHANNEL_ID} برای دسته‌بندی: {category}")
+    async for message in context.bot.get_chat_history(chat_id=CHANNEL_ID, limit=100):
+        print(f"پیام پیدا شد: text={message.text}, photo={bool(message.photo)}")
         if message.text and message.photo:
+            print(f"پست با متن و عکس پیدا شد: {message.text}")
             lines = message.text.split('\n')
             product = {}
             for line in lines:
+                print(f"خط در حال بررسی: {line}")
                 if "دسته‌بندی:" in line:
                     product["category"] = line.split(":")[1].strip()
                 elif "نام:" in line:
@@ -94,6 +98,8 @@ async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
             product["photo"] = message.photo[-1].file_id
             if product.get("category") == category:
                 products.append(product)
+                print(f"محصول اضافه شد: {product}")
+    print(f"تعداد محصولات پیدا شده: {len(products)}")
     return products
 
 # نمایش رسید
@@ -203,7 +209,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["selected_category"] = category
         products = await fetch_products(context, category)
         if not products:
-            await query.edit_message_text("محصولی توی این دسته‌بندی پیدا نشد!")
+            await query.edit_message_text("محصولی توی این دسته‌بندی پیدا نشد! مطمئن شو توی کانال با فرمت درست پست گذاشتی.")
             return
         
         for product in products:
@@ -346,11 +352,19 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # اجرای ربات
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).build()  # بدون پروکسی
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    
+    async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        print(f"یه خطا پیش اومد: {context.error}")
+        if update:
+            await update.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کن.")
+    app.add_error_handler(error_handler)
+    
     app.run_polling()
 
 if __name__ == "__main__":
