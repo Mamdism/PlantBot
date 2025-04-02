@@ -7,7 +7,7 @@ import requests
 ADMIN_ID = "1478363268"
 
 # توکن ربات (توکن جدیدت رو بذار)
-BOT_TOKEN = "توکن_جدید_اینجا"
+BOT_TOKEN = "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4"
 
 # کلید API Gemini
 GEMINI_API_KEY = "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4"
