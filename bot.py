@@ -364,9 +364,17 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     section = context.user_data.get("section", None)
     print(f"متن دریافت‌شده: {update.message.text}")
     
-    # اگه پیام از ادمین باشه، هیچ کاری نکن
+    # اگه پیام از ادمین باشه و user_id ذخیره شده باشه، به کاربر بفرست
     if str(user_id) == ADMIN_ID:
-        print(f"پیام از ادمین ({user_id}) بود، نادیده گرفته شد")
+        target_user_id = context.user_data.get("user_id")
+        if target_user_id:
+            await context.bot.send_message(
+                chat_id=target_user_id,
+                text=update.message.text
+            )
+            print(f"پیام ادمین به کاربر {target_user_id} ارسال شد")
+        else:
+            print(f"پیام از ادمین بود، اما user_id پیدا نشد")
         return
     
     if context.user_data.get("awaiting_address", False):
@@ -446,7 +454,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             اصول پاسخگویی شما:
             - دقت و صحت: همواره پاسخ‌های دقیق و مبتنی بر دانش علمی ارائه دهید. از ارائه اطلاعات نادرست یا غیرمطمئن خودداری کنید.
             - جامعیت: سعی کنید تا حد امکان تمام جوانب سوال کاربر را پوشش دهید و اطلاعات کاملی ارائه کنید.
-            - وضوح و سادگی: از زبانی ساده و قابل فهم برای کاربر استفاده کنید، حتی اگر موضوع پیچیده باشد. اصطلاحات تخصصی را در صورت نیاز توضیح دهید。
+            - وضوح و سادگی: از زبانی ساده و قابل فهم برای کاربر استفاده کنید، حتی اگر موضوع پیچیده باشد. اصطلاحات تخصصی را در صورت نیاز توضیح دهید.
             - راهنمایی عملی: علاوه بر ارائه اطلاعات نظری، راهکارهای عملی و قابل اجرا برای حل مشکلات یا بهبود شرایط گیاهان ارائه دهید.
             - توجه به جزئیات: به جزئیات مطرح شده توسط کاربر توجه کنید و پاسخ خود را بر اساس اطلاعات ارائه شده تنظیم کنید.
             - پرسش‌های تکمیلی: در صورت نیاز برای درک بهتر سوال کاربر، سوالات تکمیلی بپرسید.
@@ -494,22 +502,21 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if context.user_data.get("awaiting_receipt", False):
         pending_type = context.user_data.get("pending_type")
-        
-        if pending_type == "product":
-            await update.message.reply_text("رسیدت رو گرفتم! سفارشت ثبت شد، بزودی باهات تماس می‌گیرم 🌱")
-            context.user_data["awaiting_receipt"] = False
-        elif pending_type == "visit_home":
-            await update.message.reply_text("رسید بیعانه رو گرفتم! وقت ویزیت حضوری ثبت شد، بزودی باهات تماس می‌گیرم 🌿")
-            context.user_data["awaiting_receipt"] = False
-        elif pending_type == "visit_online":
-            await update.message.reply_text("رسیدت رو گرفتم! وقت ویزیت آنلاین ثبت شد، بزودی باهات تماس می‌گیرم 🌱")
-            context.user_data["awaiting_receipt"] = False
+        await update.message.reply_text("ممنونم از پرداختت، وضعیت سفارشت یا ویزیتت در حال بررسیه، بزودی پاسخ نهایی برات ارسال می‌شه 🌱")
+        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
+        print(f"رسید پرداخت به ادمین فوروارد شد (نوع: {pending_type})")
+        context.user_data["awaiting_receipt"] = False
+    elif context.user_data.get("section") in ["treatment", "care"]:
+        await update.message.reply_text("ممنونم که عکس فرستادی، برای متخصصمون فرستادم، منتظر جوابش باش 🌿")
+        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
+        print("عکس درمان/نگهداری به ادمین فوروارد شد")
+        conversation = context.user_data.get("conversation", [])
+        conversation.append({"role": "user", "content": "کاربر یک عکس از گیاهش فرستاده است."})
+        context.user_data["conversation"] = conversation
     else:
-        await update.message.reply_text("عکس رو گرفتم! یه لحظه صبر کن تا بررسی کنم 🌿")
-        if context.user_data.get("section") in ["treatment", "care"]:
-            conversation = context.user_data.get("conversation", [])
-            conversation.append({"role": "user", "content": "کاربر یک عکس از گیاهش فرستاده است."})
-            context.user_data["conversation"] = conversation
+        await update.message.reply_text("عکس رو گرفتم، ولی نمی‌دونم چی باهاش کنم! لطفاً توضیح بده 🌱")
+        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
+        print("عکس نامشخص به ادمین فوروارد شد")
 
 # مدیریت لوکیشن
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
