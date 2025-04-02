@@ -1,6 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import google.generativeai as genai
+import requests  # برای دانلود فایل از GitHub
 
 # آیدی عددی تلگرام خودت
 ADMIN_ID = "1478363268"
@@ -13,10 +14,10 @@ GEMINI_API_KEY = "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4"
 
 # تنظیم کلاینت Gemini
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-pro')  # فرض می‌کنیم این مدل کار می‌کنه
+model = genai.GenerativeModel('gemini-1.5-pro')
 
-# لینک PDF مستقیم (فعلاً استفاده نمی‌شه، چون فایل محلی می‌فرستیم)
-PDF_LINK = "https://biaupload.com/do.php?filename=org-b946e23e76b71.pdf"
+# لینک PDF مستقیم (فعلاً استفاده نمی‌شه)
+PDF_LINK = "https://www.mediafire.com/file/rdg4tmz7x6wkmjb/%25D8%25AC%25D9%2586%25DA%25AF%25D9%2584_%25D8%25AE%25D9%2588%25D8%25AF%25D8%25AA%25D9%2588_%25D8%25A8%25D8%25B3%25D8%25A7%25D8%25B2_-_%25D8%25B0%25D8%25A7%25D8%25BA_%25D9%2587%25DB%258C%25D9%2588%25D8%25A7.pdf/file"
 
 # منوی اصلی
 def main_menu():
@@ -46,7 +47,7 @@ def education_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# منوی دکمه‌های بلاگ (تغییر کرده)
+# منوی دکمه‌های بلاگ
 def blog_menu():
     keyboard = [
         [InlineKeyboardButton("دریافت PDF جنگل خودتو بساز هیوا", callback_data="download_pdf")],
@@ -58,7 +59,7 @@ def blog_menu():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("سلام! به ربات هیوا خوش اومدی. یه گزینه رو انتخاب کن:", reply_markup=main_menu())
 
-# مدیریت دکمه‌ها (تغییر کرده برای ارسال PDF)
+# مدیریت دکمه‌ها
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -67,8 +68,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if choice == "treatment":
         await query.edit_message_text("لطفاً نوع گیاهت یا مشکلی که داره رو توضیح بده و اگه می‌تونی یه عکس بفرست!")
         context.user_data["section"] = "treatment"
-        context.user_data["first_message"] = True  # برای پیام اولیه
-        context.user_data["conversation"] = []  # شروع تاریخچه مکالمه
+        context.user_data["first_message"] = True
+        context.user_data["conversation"] = []
     elif choice == "care":
         await query.edit_message_text("لطفاً نوع گیاهت یا سوالی که در مورد نگهداریش داری رو بگو و اگه می‌تونی عکس بفرست!")
         context.user_data["section"] = "care"
@@ -192,14 +193,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=content,
                 reply_markup=blog_menu()
             )
-    elif choice == "download_pdf":  # شرط جدید برای ارسال فایل
-        pdf_path = "جنگل_خودتو_بساز_هیوا.pdf"  # مسیر فایل توی پوشه پروژه
-        with open(pdf_path, 'rb') as pdf_file:
+    elif choice == "download_pdf":
+        pdf_url = "https://raw.githubusercontent.com/Mamdism/PlantBot/main/جنگل_خودتو_بساز_هیوا.pdf"
+        response = requests.get(pdf_url)
+        if response.status_code == 200:
             await context.bot.send_document(
                 chat_id=query.message.chat_id,
-                document=pdf_file,
+                document=response.content,
                 filename="جنگل_خودتو_بساز_هیوا.pdf",
                 caption="اینم PDF جنگل خودتو بساز هیوا! امیدوارم به کارت بیاد 🌿"
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text="مشکلی پیش اومد! نمی‌تونم PDF رو بفرستم. بعداً دوباره امتحان کن."
             )
     elif choice == "back_to_main":
         await context.bot.send_message(
@@ -207,7 +214,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="سلام! به ربات هیوا خوش اومدی. یه گزینه رو انتخاب کن:",
             reply_markup=main_menu()
         )
-        context.user_data.clear()  # پاک کردن تاریخچه موقع برگشت به منوی اصلی
+        context.user_data.clear()
     elif choice == "back_to_education":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -233,7 +240,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"آیدی کاربر ذخیره شد: {user_id}")
         
         if section in ["treatment", "care"]:
-            # فقط بار اول پیام "صبر کن" رو نشون بده
             if context.user_data.get("first_message", True):
                 loading_msg = await update.message.reply_text("یه لحظه صبر کن، دارم فکر می‌کنم!")
                 context.user_data["first_message"] = False
@@ -241,11 +247,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 loading_msg = await update.message.reply_text("در حال فکر کردن...")
             
             try:
-                # تاریخچه مکالمه رو بگیر یا بساز
                 conversation = context.user_data.get("conversation", [])
                 conversation.append({"role": "user", "content": update.message.text})
                 
-                # پرامپت با تاریخچه
                 prompt = f"""
                 تو یه متخصص گل و گیاه هستی. کاربر در مورد {section} گیاهش داره باهات حرف می‌زنه.
                 این تاریخچه مکالمه‌ست: {conversation}.
@@ -255,11 +259,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 response = model.generate_content(prompt)
                 answer_fa = response.text
                 
-                # اضافه کردن جواب به تاریخچه
                 conversation.append({"role": "assistant", "content": answer_fa})
                 context.user_data["conversation"] = conversation
                 
-                # پاک کردن پیام لودینگ و فرستادن جواب
                 await context.bot.delete_message(chat_id=user_id, message_id=loading_msg.message_id)
                 await update.message.reply_text(answer_fa)
             except Exception as e:
