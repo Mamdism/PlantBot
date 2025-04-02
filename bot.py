@@ -99,13 +99,18 @@ async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"محصول انتخاب‌شده: {product_name}")
     category = context.user_data.get("selected_category")
     print(f"دسته‌بندی انتخاب‌شده: {category}")
+    if not product_name or not category:
+        await update.message.reply_text("مشکلی پیش اومد! محصول یا دسته‌بندی انتخاب نشده.")
+        print("خطا: محصول یا دسته‌بندی در context.user_data نیست")
+        return
+    
     products = await fetch_products(context, category)
     try:
         product = next(p for p in products if p["name"] == product_name)
         print(f"محصول پیدا شده: {product}")
     except StopIteration:
         print(f"خطا: محصول {product_name} توی دسته‌بندی {category} پیدا نشد!")
-        await update.message.reply_text("مشکلی پیش اومد! محصول پیدا نشد.")
+        await update.message.reply_text(f"مشکلی پیش اومد! محصول '{product_name}' توی دسته‌بندی '{category}' پیدا نشد.")
         return
     
     receipt = (f"رسید خرید:\n"
@@ -297,7 +302,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "postal_code": text[5]
             }
             context.user_data["awaiting_address"] = False
-            print("آدرس ذخیره شد، در حال نمایش رسید...")
+            print("آدرس با موفقیت ذخیره شد:")
+            print(context.user_data["address"])
+            print("در حال نمایش رسید...")
             await show_receipt(update, context)
         else:
             await update.message.reply_text("لطفاً همه‌ی اطلاعات رو توی ۶ خط بفرست!")
@@ -326,10 +333,23 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 conversation.append({"role": "user", "content": update.message.text})
                 
                 prompt = f"""
+                شما یک متخصص گیاه‌شناسی بسیار آگاه و با تجربه هستید که دانش عمیقی در زمینه‌های مختلف گیاهان از جمله گیاهان آپارتمانی، گیاهان دارویی، گیاهان کشاورزی، درختان، گل‌ها و سایر انواع گیاهان دارید. شما قادر به پاسخگویی دقیق و جامع به سوالات کاربران در مورد شناسایی گیاهان، نحوه نگهداری صحیح، مشکلات و بیماری‌های گیاهان، روش‌های تکثیر، خواص گیاهان دارویی و هر موضوع مرتبط دیگر هستید.
+
+                اصول پاسخگویی شما:
+                - دقت و صحت: همواره پاسخ‌های دقیق و مبتنی بر دانش علمی ارائه دهید. از ارائه اطلاعات نادرست یا غیرمطمئن خودداری کنید.
+                - جامعیت: سعی کنید تا حد امکان تمام جوانب سوال کاربر را پوشش دهید و اطلاعات کاملی ارائه کنید.
+                - وضوح و سادگی: از زبانی ساده و قابل فهم برای کاربر استفاده کنید، حتی اگر موضوع پیچیده باشد. اصطلاحات تخصصی را در صورت نیاز توضیح دهید.
+                - راهنمایی عملی: علاوه بر ارائه اطلاعات نظری، راهکارهای عملی و قابل اجرا برای حل مشکلات یا بهبود شرایط گیاهان ارائه دهید.
+                - توجه به جزئیات: به جزئیات مطرح شده توسط کاربر توجه کنید و پاسخ خود را بر اساس اطلاعات ارائه شده تنظیم کنید.
+                - پرسش‌های تکمیلی: در صورت نیاز برای درک بهتر سوال کاربر، سوالات تکمیلی بپرسید.
+                - احتیاط در تشخیص بیماری از طریق متن: به کاربر یادآوری کنید که تشخیص دقیق بیماری گیاه بدون مشاهده مستقیم ممکن نیست و توضیحات شما بر اساس اطلاعات ارائه شده است.
+                - درخواست عکس در صورت نیاز: اگر اطلاعات ارائه‌شده توسط کاربر برای پاسخ دقیق کافی نباشد، در انتهای پاسخ خود اضافه کنید: "برای جواب دقیق‌تر به سوالتون لطفاً عکس گیاهتون رو بفرستید تا متخصصین ما بررسی کنن." این پیام فقط در صورتی اضافه شود که نیاز به اطلاعات بصری برای تشخیص یا راهنمایی بهتر باشد و اگر با متن فعلی مشکل کاربر حل شد، گفته نشود.
+                - لحن دوستانه و کمک‌کننده: با لحنی صمیمی و مشتاق به کمک پاسخ دهید تا کاربر احساس راحتی کند.
+
                 تو یه متخصص گل و گیاه هستی. کاربر در مورد {section} گیاهش داره باهات حرف می‌زنه.
                 این تاریخچه مکالمه‌ست: {conversation}.
                 آخرین پیام کاربر: "{update.message.text}".
-                به زبان فارسی، دوستانه و محترمانه جواب بده. اگه فکر می‌کنی برای جواب دقیق‌تر نیاز به اطلاعات بیشتر یا عکس داری، محترمانه بگو، وگرنه کامل جواب بده.
+                به زبان فارسی، دوستانه و محترمانه جواب بده. اگه اطلاعات کافی برای پاسخ دقیق نداری، سوالات تکمیلی بپرس و در صورت نیاز به اطلاعات بصری، در انتها بگو: "برای جواب دقیق‌تر به سوالتون لطفاً عکس گیاهتون رو بفرستید تا متخصصین ما بررسی کنن."
                 """
                 response = model.generate_content(prompt)
                 answer_fa = response.text
@@ -358,6 +378,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot_data["last_user_id"] = user_id
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
         await update.message.reply_text("عکس رو گرفتم! منتظر جواب متخصص باش.")
+        if context.user_data.get("section") in ["treatment", "care"]:
+            conversation = context.user_data.get("conversation", [])
+            conversation.append({"role": "user", "content": "کاربر یک عکس از گیاهش فرستاده است."})
+            context.user_data["conversation"] = conversation
     else:
         target_user_id = context.bot_data.get("last_user_id")
         if target_user_id:
