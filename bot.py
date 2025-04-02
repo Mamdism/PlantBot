@@ -16,7 +16,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-pro')  # فرض می‌کنیم این مدل کار می‌کنه
 
 # لینک PDF مستقیم (فعلاً استفاده نمی‌شه، چون فایل محلی می‌فرستیم)
-PDF_LINK = "https://www.mediafire.com/file/rdg4tmz7x6wkmjb/%25D8%25AC%25D9%2586%25DA%25AF%25D9%2584_%25D8%25AE%25D9%2588%25D8%25AF%25D8%25AA%25D9%2588_%25D8%25A8%25D8%25B3%25D8%25A7%25D8%25B2_-_%25D8%25A8%25D8%25A7%25D8%25BA_%25D9%2587%25DB%258C%25D9%2588%25D8%25A7.pdf/file"
+PDF_LINK = "https://biaupload.com/do.php?filename=org-b946e23e76b71.pdf"
 
 # منوی اصلی
 def main_menu():
