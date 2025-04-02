@@ -1,23 +1,26 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import google.generativeai as genai
-import requests  # برای دانلود فایل از GitHub
+import requests
 
-# آیدی عددی تلگرام خودت
+# آیدی عددی تلگرام ادمین
 ADMIN_ID = "1478363268"
 
-# توکن رباتت
+# توکن ربات
 BOT_TOKEN = "7990694940:AAHYGyi1mm2TNl2ZPSK98G0q4dCDaWcRevk"
 
 # کلید API Gemini
 GEMINI_API_KEY = "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4"
 
+# آیدی کانال تلگرامی
+CHANNEL_ID = "-1002560592686"
+
+# مشخصات حساب برای کارت به کارت
+CARD_INFO = "محمد باقری\n6219-8619-6996-9723"
+
 # تنظیم کلاینت Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-pro')
-
-# لینک PDF مستقیم (فعلاً استفاده نمی‌شه)
-PDF_LINK = "https://www.mediafire.com/file/rdg4tmz7x6wkmjb/%25D8%25AC%25D9%2586%25DA%25AF%25D9%2584_%25D8%25AE%25D9%2588%25D8%25AF%25D8%25AA%25D9%2588_%25D8%25A8%25D8%25B3%25D8%25A7%25D8%25B2_-_%25D8%25B0%25D8%25A7%25D8%25BA_%25D9%2587%25DB%258C%25D9%2588%25D8%25A7.pdf/file"
 
 # منوی اصلی
 def main_menu():
@@ -47,13 +50,73 @@ def education_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# منوی دکمه‌های بلاگ
+# منوی بلاگ
 def blog_menu():
     keyboard = [
         [InlineKeyboardButton("دریافت PDF جنگل خودتو بساز هیوا", callback_data="download_pdf")],
         [InlineKeyboardButton("بازگشت", callback_data="back_to_education")]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+# منوی محصولات
+def products_menu():
+    keyboard = [
+        [InlineKeyboardButton("گیاهان", callback_data="cat_plants")],
+        [InlineKeyboardButton("خاک", callback_data="cat_soil")],
+        [InlineKeyboardButton("گلدان", callback_data="cat_pots")],
+        [InlineKeyboardButton("بذر", callback_data="cat_seeds")],
+        [InlineKeyboardButton("کود", callback_data="cat_fertilizers")],
+        [InlineKeyboardButton("ملزومات باغبانی", callback_data="cat_tools")],
+        [InlineKeyboardButton("برگشت به منوی اصلی", callback_data="back_to_main")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+# گرفتن محصولات از کانال
+async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
+    products = []
+    async for message in context.bot.get_chat_history(chat_id=CHANNEL_ID, limit=100):  # 100 پست آخر
+        if message.text and message.photo:
+            lines = message.text.split('\n')
+            product = {}
+            for line in lines:
+                if "دسته‌بندی:" in line:
+                    product["category"] = line.split(":")[1].strip()
+                elif "نام:" in line:
+                    product["name"] = line.split(":")[1].strip()
+                elif "سایز:" in line:
+                    product["size"] = line.split(":")[1].strip()
+                elif "رنگ:" in line:
+                    product["color"] = line.split(":")[1].strip()
+                elif "تعداد:" in line:
+                    product["stock"] = int(line.split(":")[1].strip())
+                elif "قیمت:" in line:
+                    product["price"] = int(line.split(":")[1].strip().replace(" تومان", ""))
+            product["photo"] = message.photo[-1].file_id
+            if product.get("category") == category:
+                products.append(product)
+    return products
+
+# نمایش رسید
+async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    product_name = context.user_data["selected_product"]
+    products = await fetch_products(context, context.user_data["selected_category"])
+    product = next(p for p in products if p["name"] == product_name)
+    
+    receipt = (f"رسید خرید:\n"
+               f"محصول: {product_name}\n"
+               f"**هزینه گیاه: {product['price']} تومان**\n"
+               f"هزینه ارسال: پسکرایه\n"
+               f"مشخصات:\n"
+               f"نام: {context.user_data['address']['name']}\n"
+               f"شماره: {context.user_data['address']['phone']}\n"
+               f"آدرس: {context.user_data['address']['province']}، {context.user_data['address']['city']}، {context.user_data['address']['address']}\n"
+               f"کدپستی: {context.user_data['address']['postal_code']}")
+    
+    keyboard = [
+        [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_gateway")],
+        [InlineKeyboardButton("کارت به کارت", callback_data="pay_card")]
+    ]
+    await update.message.reply_text(receipt, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 # شروع ربات
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -79,98 +142,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("یه موضوع آموزشی انتخاب کن:", reply_markup=education_menu())
     elif choice.startswith("edu_"):
         education_content = {
-            "edu_1": """راهنمای جامع مبانی گیاه‌شناسی: هر آنچه برای نگهداری گیاهان باید بدانید! 🌿✨
-
-مقدمه
-گیاهان، علاوه بر زیبایی که به محیط می‌بخشند، هوای اطراف را تصفیه کرده و باعث ایجاد حس آرامش می‌شوند. برای داشتن گیاهانی سالم، باید نیازهای اساسی آن‌ها مثل نور، آب، خاک، دما و رطوبت رو بشناسید. این اصول پایه، شروع راه شماست برای تبدیل شدن به یه باغبون حرفه‌ای!""",
-            "edu_2": """روش‌های آبیاری و تغذیه گیاهان 💧🌱
-
-چرا آبیاری بیش از حد خطرناک است؟
-یکی از دلایل اصلی مرگ گیاهان، آبیاری زیاد است. وقتی آب اضافی در خاک باقی بمونه، ریشه‌ها پوسیده می‌شن و گیاه از بین می‌ره.
-
-چگونه بفهمیم گیاه به آب نیاز داره؟
-✔️ انگشت خودتون رو ۲ تا ۳ سانتی‌متر توی خاک فرو ببرید. اگه خشک بود، وقت آبیاریه.
-✔️ گلدان باید سوراخ زهکشی داشته باشه تا آب اضافی خارج بشه.
-
-برنامه آبیاری:
-- گیاهان آپارتمانی معمولی: هفته‌ای ۱ تا ۲ بار
-- کاکتوس‌ها و ساکولنت‌ها: هر ۱۰ تا ۱۵ روز یه بار
-- گیاهان رطوبت‌دوست (مثل سرخس): آبیاری بیشتر + اسپری آب
-
-خاک و کود:
-✔️ خاک آپارتمانی: خاک برگ + پرلیت + کوکوپیت
-✔️ کوددهی: هر ۲ تا ۴ هفته با کود ۲۰-۲۰-۲۰ برای رشد بهتر.""",
-            "edu_3": """تکثیر و پرورش گیاهان 🌿
-تکثیر گیاهان یه راه عالی برای افزایش تعداد گیاهاتونه! دو روش اصلی وجود داره:
-
-1. قلمه زدن:
-✔️ یه ساقه سالم با ۲-۳ برگ انتخاب کنید.
-✔️ اون رو توی آب یا خاک مرطوب بذارید تا ریشه بده.
-✔️ بعد از ۲-۴ هفته، قلمه رو به گلدان منتقل کنید.
-
-2. کاشت بذر:
-✔️ بذرها رو توی خاک سبک بکارید و کمی آب بدید.
-✔️ توی جای گرم و با نور غیرمستقیم نگه دارید تا جوانه بزنن.
-
-نکته: صبر کلید موفقیته! بعضی گیاها مثل پتوس سریع ریشه می‌دن، ولی کاکتوس‌ها بیشتر طول می‌کشه.""",
-            "edu_4": """کنترل آفات و بیماری‌ها 🐞
-آفات و بیماری‌ها می‌تونن گیاهاتون رو نابود کنن، پس باید سریع عمل کنید!
-
-آفات رایج:
-✔️ شته‌ها: با آب و صابون ملایم بشوریدشون.
-✔️ کنه تارعنکبوتی: برگ‌ها رو مرطوب نگه دارید و از سم کنه‌کش استفاده کنید.
-
-بیماری‌ها:
-✔️ پوسیدگی ریشه: آبیاری رو کم کنید و زهکشی رو چک کنید.
-✔️ لکه‌های قارچی: برگ‌های بیمار رو جدا کنید و قارچ‌کش بزنید.
-
-نکته: همیشه گیاهاتون رو منظم بررسی کنید تا مشکل زود پیدا بشه!""",
-            "edu_5": """طراحی و نگهداری فضای سبز 🌳
-برای داشتن یه فضای سبز قشنگ توی خونه یا باغچه:
-
-✔️ گیاها رو بر اساس نیاز نورشون بچینید (آفتاب‌دوست‌ها کنار پنجره، سایه‌دوست‌ها توی گوشه).
-✔️ از ترکیب گیاهان با ارتفاع و رنگ مختلف استفاده کنید.
-✔️ هرس منظم کنید تا شکلشون حفظ بشه.
-
-نکته: یه برنامه نگهداری هفتگی بذارید تا همیشه مرتب بمونن!""",
-            "edu_6": """مشکلات رایج و راهکارها ⚠️
-✔️ زرد شدن برگ‌ها: آبیاری زیاد یا کم، یا نور نامناسب.
-✔️ رشد علفی (ساقه دراز و برگ‌های کوچک): نور کمه، گیاه رو به جای پرنور ببرید.
-✔️ برگ‌های رنگ‌پریده: نور زیاد یا کمبود کود.
-
-راه‌حل: نیاز گیاهتون رو بشناسید و شرایط رو تنظیم کنید!""",
-            "edu_7": """روش‌های خاص نگهداری 🌡️
-دما و رطوبت خیلی مهمه:
-✔️ دمای ایده‌آل: ۱۸ تا ۲۵ درجه سانتی‌گراد
-✔️ دمای بالا = پژمردگی
-✔️ دمای پایین = سیاه شدن برگ‌ها
-
-رطوبت برای گیاهان گرمسیری:
-✔️ دستگاه بخور سرد
-✔️ ظرف آب کنار گیاه
-✔️ اسپری آب روی برگ‌ها""",
-            "edu_8": """نور: مهم‌ترین فاکتور برای رشد گیاهان ☀️
-گیاها بدون نور نمی‌تونن فتوسنتز کنن و رشدشون متوقف می‌شه.
-
-چطور نور رو تنظیم کنیم؟
-✔️ برگ‌ها به سمت نور کشیده شدن = نور کم
-✔️ برگ‌ها زرد شدن = نور زیاد
-✔️ رشد علفی = نور ناکافی
-
-نیاز نوری گیاها:
-✔️ آفتاب‌دوست (کاکتوس): ۴-۶ ساعت نور مستقیم
-✔️ نیم‌سایه (پتوس): نور غیرمستقیم
-✔️ سایه‌دوست (زامیفولیا): نور کم""",
-            "edu_9": """گلدان مناسب 🏺
-یه گلدان خوب باید:
-✔️ سوراخ زهکشی داشته باشه.
-✔️ اندازه‌ش درست باشه (خیلی بزرگ = پوسیدگی ریشه).
-✔️ جنسش مناسب باشه:
-- سفالی: زهکشی بالا
-- پلاستیکی: حفظ رطوبت
-- سرامیکی: قشنگ ولی زهکشی کمتر
-
-نکته: هر بار گلدان رو فقط یه سایز بزرگ‌تر کنید."""
+            "edu_1": """راهنمای جامع مبانی گیاه‌شناسی: هر آنچه برای نگهداری گیاهان باید بدانید! 🌿✨ ...""",
+            "edu_2": """روش‌های آبیاری و تغذیه گیاهان 💧🌱 ...""",
+            "edu_3": """تکثیر و پرورش گیاهان 🌿 ...""",
+            "edu_4": """کنترل آفات و بیماری‌ها 🐞 ...""",
+            "edu_5": """طراحی و نگهداری فضای سبز 🌳 ...""",
+            "edu_6": """مشکلات رایج و راهکارها ⚠️ ...""",
+            "edu_7": """روش‌های خاص نگهداری 🌡️ ...""",
+            "edu_8": """نور: مهم‌ترین فاکتور برای رشد گیاهان ☀️ ...""",
+            "edu_9": """گلدان مناسب 🏺 ..."""
         }
         photo_urls = {
             "edu_1": "https://www.mediafire.com/convkey/5e46/ejxbgzriujkkg116g.jpg",
@@ -208,6 +188,63 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=query.message.chat_id,
                 text="مشکلی پیش اومد! نمی‌تونم PDF رو بفرستم. بعداً دوباره امتحان کن."
             )
+    elif choice == "products":
+        await query.edit_message_text("یه دسته‌بندی انتخاب کن:", reply_markup=products_menu())
+    elif choice.startswith("cat_"):
+        category_map = {
+            "cat_plants": "گیاهان",
+            "cat_soil": "خاک",
+            "cat_pots": "گلدان",
+            "cat_seeds": "بذر",
+            "cat_fertilizers": "کود",
+            "cat_tools": "ملزومات باغبانی"
+        }
+        category = category_map[choice]
+        context.user_data["selected_category"] = category
+        products = await fetch_products(context, category)
+        if not products:
+            await query.edit_message_text("محصولی توی این دسته‌بندی پیدا نشد!")
+            return
+        
+        for product in products:
+            caption = (f"نام: {product['name']}\n"
+                       f"سایز: {product['size']}\n"
+                       f"رنگ: {product['color']}\n"
+                       f"تعداد موجود: {product['stock']}\n"
+                       f"**قیمت: {product['price']} تومان**")
+            keyboard = [[InlineKeyboardButton("خرید", callback_data=f"buy_{product['name']}")]]
+            await context.bot.send_photo(
+                chat_id=query.message.chat_id,
+                photo=product["photo"],
+                caption=caption,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+    elif choice.startswith("buy_"):
+        product_name = choice.replace("buy_", "")
+        context.user_data["selected_product"] = product_name
+        await query.edit_message_text(
+            "لطفاً مشخصات و آدرس رو وارد کن:\n"
+            "نام و نام خانوادگی:\n"
+            "شماره تلفن:\n"
+            "استان:\n"
+            "شهر:\n"
+            "آدرس:\n"
+            "کدپستی:\n"
+            "هر خط یه بخش رو پر کن و بفرست."
+        )
+        context.user_data["awaiting_address"] = True
+    elif choice == "pay_gateway":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="درگاه پرداخت بزودی فعال می‌شه!"
+        )
+    elif choice == "pay_card":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=f"لطفاً مبلغ رو به این کارت واریز کن و رسیدش رو بفرست:\n{CARD_INFO}"
+        )
+        context.user_data["awaiting_receipt"] = True
     elif choice == "back_to_main":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -227,6 +264,23 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
     section = context.user_data.get("section", None)
     
+    if context.user_data.get("awaiting_address", False):
+        text = update.message.text.split("\n")
+        if len(text) == 6:
+            context.user_data["address"] = {
+                "name": text[0],
+                "phone": text[1],
+                "province": text[2],
+                "city": text[3],
+                "address": text[4],
+                "postal_code": text[5]
+            }
+            context.user_data["awaiting_address"] = False
+            await show_receipt(update, context)
+        else:
+            await update.message.reply_text("لطفاً همه‌ی اطلاعات رو توی ۶ خط بفرست!")
+        return
+    
     if user_id == int(ADMIN_ID):
         target_user_id = context.bot_data.get("last_user_id")
         if target_user_id:
@@ -234,7 +288,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("جوابت برای کاربر فرستاده شد!")
         else:
             await update.message.reply_text("کاربری پیدا نشد! اول باید یه کاربر پیام بفرسته.")
-    
     elif user_id != int(ADMIN_ID):
         context.bot_data["last_user_id"] = user_id
         print(f"آیدی کاربر ذخیره شد: {user_id}")
@@ -275,7 +328,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # مدیریت عکس‌ها
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    if user_id != int(ADMIN_ID):
+    if context.user_data.get("awaiting_receipt", False):
+        await update.message.reply_text("رسیدت رو گرفتم! سفارش در حال بررسیه.")
+        context.user_data["awaiting_receipt"] = False
+        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
+    elif user_id != int(ADMIN_ID):
         context.bot_data["last_user_id"] = user_id
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
         await update.message.reply_text("عکس رو گرفتم! منتظر جواب متخصص باش.")
