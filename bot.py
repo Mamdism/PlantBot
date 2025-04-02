@@ -1,8 +1,9 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import google.generativeai as genai
 import requests
 import json
+import os
 
 # آیدی عددی تلگرام ادمین
 ADMIN_ID = "1478363268"
@@ -16,9 +17,36 @@ GEMINI_API_KEY = "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4"
 # مشخصات حساب برای کارت به کارت
 CARD_INFO = "محمد باقری\n6219-8619-6996-9723"
 
+# مسیر فایل برای ذخیره کاربرها
+USERS_FILE = "users.json"
+
 # تنظیم کلاینت Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-pro')
+
+# تابع برای ذخیره کاربرها
+def save_user(user_id, contact=None):
+    users = {}
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            users = json.load(f)
+    
+    users[str(user_id)] = {
+        "user_id": user_id,
+        "phone": contact.phone_number if contact else None,
+        "first_name": contact.first_name if contact else None
+    }
+    
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False, indent=4)
+    print(f"کاربر {user_id} ذخیره شد")
+
+# تابع برای گرفتن لیست کاربرها
+def get_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
 # منوی اصلی
 def main_menu():
@@ -141,7 +169,17 @@ async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # شروع ربات
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("سلام! به ربات هیوا خوش اومدی 🌱 یه گزینه رو انتخاب کن:", reply_markup=main_menu())
+    user_id = update.message.from_user.id
+    users = get_users()
+    
+    if str(user_id) not in users:
+        keyboard = [[KeyboardButton("اشتراک تماس", request_contact=True)]]
+        await update.message.reply_text(
+            "سلام! به ربات هیوا خوش اومدی 🌱\nلطفاً برای ثبت‌نام، تماس خودت رو اشتراک کن:",
+            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+        )
+    else:
+        await update.message.reply_text("خوش اومدی دوباره! 🌱 یه گزینه رو انتخاب کن:", reply_markup=main_menu())
 
 # برگشت به منوی اصلی
 async def back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -493,7 +531,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # مدیریت عکس‌ها
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    # اگه پیام از ادمین باشه، هیچ کاری نکن
     if str(user_id) == ADMIN_ID:
         print(f"عکس از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
@@ -526,7 +563,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # مدیریت لوکیشن
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    # اگه پیام از ادمین باشه، هیچ کاری نکن
     if str(user_id) == ADMIN_ID:
         print(f"لوکیشن از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
@@ -543,7 +579,6 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
             ])
         )
-        # ارسال اطلاعات و لوکیشن به ادمین
         try:
             visit_info = context.user_data["visit_home_info"]
             await context.bot.send_message(
@@ -564,6 +599,13 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             print(f"خطا در ارسال اطلاعات و لوکیشن به ادمین: {e}")
 
+# مدیریت تماس
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    contact = update.message.contact
+    save_user(user_id, contact)
+    await update.message.reply_text("ممنون! حالا ثبت شدی 🌱 یه گزینه انتخاب کن:", reply_markup=main_menu())
+
 # دستور برای ارسال پیام به کاربر توسط ادمین
 async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -579,6 +621,11 @@ async def send_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         target_user_id = args[0]
         message_text = " ".join(args[1:])
+        
+        users = get_users()
+        if target_user_id not in users:
+            await update.message.reply_text(f"کاربر با آیدی {target_user_id} پیدا نشد!")
+            return
         
         await context.bot.send_message(
             chat_id=target_user_id,
@@ -596,11 +643,12 @@ def main():
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", back_to_menu))
-    app.add_handler(CommandHandler("send", send_message))  # اضافه کردن دستور جدید
+    app.add_handler(CommandHandler("send", send_message))
     app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters(COMMAND), handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+    app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
     
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"یه خطا پیش اومد: {context.error}")
