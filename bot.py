@@ -6,8 +6,8 @@ import requests
 # آیدی عددی تلگرام ادمین
 ADMIN_ID = "1478363268"
 
-# توکن ربات
-BOT_TOKEN = "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4"
+# توکن ربات (توکن جدیدت رو بذار)
+BOT_TOKEN = "توکن_جدید_اینجا"
 
 # کلید API Gemini
 GEMINI_API_KEY = "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4"
@@ -71,34 +71,49 @@ def products_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# گرفتن محصولات از کانال (با لاگ بیشتر)
+# گرفتن محصولات از کانال
 async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
     products = []
     print(f"در حال بررسی کانال {CHANNEL_ID} برای دسته‌بندی: {category}")
-    async for message in context.bot.get_chat_history(chat_id=CHANNEL_ID, limit=100):
-        print(f"پیام پیدا شد: text={message.text}, photo={bool(message.photo)}")
-        if message.text and message.photo:
-            print(f"پست با متن و عکس پیدا شد: {message.text}")
-            lines = message.text.split('\n')
-            product = {}
-            for line in lines:
-                print(f"خط در حال بررسی: {line}")
-                if "دسته‌بندی:" in line:
-                    product["category"] = line.split(":")[1].strip()
-                elif "نام:" in line:
-                    product["name"] = line.split(":")[1].strip()
-                elif "سایز:" in line:
-                    product["size"] = line.split(":")[1].strip()
-                elif "رنگ:" in line:
-                    product["color"] = line.split(":")[1].strip()
-                elif "تعداد:" in line:
-                    product["stock"] = int(line.split(":")[1].strip())
-                elif "قیمت:" in line:
-                    product["price"] = int(line.split(":")[1].strip().replace(" تومان", ""))
-            product["photo"] = message.photo[-1].file_id
-            if product.get("category") == category:
-                products.append(product)
-                print(f"محصول اضافه شد: {product}")
+    
+    # استفاده از API خام تلگرام
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatHistory"
+    params = {
+        "chat_id": CHANNEL_ID,
+        "limit": 100
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    
+    if data.get("ok"):
+        messages = data["result"]["messages"]
+        for message in messages:
+            print(f"پیام پیدا شد: text={message.get('text')}, photo={bool(message.get('photo'))}")
+            if message.get("text") and message.get("photo"):
+                print(f"پست با متن و عکس پیدا شد: {message['text']}")
+                lines = message["text"].split('\n')
+                product = {}
+                for line in lines:
+                    print(f"خط در حال بررسی: {line}")
+                    if "دسته‌بندی:" in line:
+                        product["category"] = line.split(":")[1].strip()
+                    elif "نام:" in line:
+                        product["name"] = line.split(":")[1].strip()
+                    elif "سایز:" in line:
+                        product["size"] = line.split(":")[1].strip()
+                    elif "رنگ:" in line:
+                        product["color"] = line.split(":")[1].strip()
+                    elif "تعداد:" in line:
+                        product["stock"] = int(line.split(":")[1].strip())
+                    elif "قیمت:" in line:
+                        product["price"] = int(line.split(":")[1].strip().replace(" تومان", ""))
+                product["photo"] = message["photo"][-1]["file_id"]
+                if product.get("category") == category:
+                    products.append(product)
+                    print(f"محصول اضافه شد: {product}")
+    else:
+        print(f"خطا در گرفتن پیام‌ها: {data}")
+    
     print(f"تعداد محصولات پیدا شده: {len(products)}")
     return products
 
@@ -352,7 +367,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # اجرای ربات
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()  # بدون پروکسی
+    app = Application.builder().token(BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
@@ -361,8 +376,10 @@ def main():
     
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"یه خطا پیش اومد: {context.error}")
-        if update:
+        if update and hasattr(update, "message") and update.message:
             await update.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کن.")
+        elif update and hasattr(update, "callback_query") and update.callback_query:
+            await update.callback_query.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کن.")
     app.add_error_handler(error_handler)
     
     app.run_polling()
