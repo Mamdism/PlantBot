@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import google.generativeai as genai
 import requests
-import asyncio
+import json
 
 # آیدی عددی تلگرام ادمین
 ADMIN_ID = "1478363268"
@@ -12,9 +12,6 @@ BOT_TOKEN = "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4"
 
 # کلید API Gemini
 GEMINI_API_KEY = "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4"
-
-# آیدی کانال تلگرامی
-CHANNEL_ID = "-1002560592686"
 
 # مشخصات حساب برای کارت به کارت
 CARD_INFO = "محمد باقری\n6219-8619-6996-9723"
@@ -72,50 +69,28 @@ def products_menu():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# گرفتن محصولات از کانال (بدون عکس)
+# گرفتن محصولات از فایل JSON
 async def fetch_products(context: ContextTypes.DEFAULT_TYPE, category: str):
-    products = []
-    print(f"در حال بررسی کانال {CHANNEL_ID} برای دسته‌بندی: {category}")
-    
-    # یه تأخیر کوچک برای کاهش فشار
-    await asyncio.sleep(1)
-    
-    # گرفتن آپدیت‌ها از تلگرام
+    print(f"در حال بررسی محصولات برای دسته‌بندی: {category}")
     try:
-        updates = await context.bot.get_updates()
+        with open("products.json", "r", encoding="utf-8") as file:
+            all_products = json.load(file)
+            products = all_products.get(category, [])
+            print(f"محصولات پیدا شده برای {category}: {products}")
+            return products
+    except FileNotFoundError:
+        print("فایل products.json پیدا نشد، محصول تستی برمی‌گردونم")
+        return [{
+            "name": "کاکتوس تستی",
+            "size": "کوچک",
+            "color": "سبز",
+            "stock": 5,
+            "price": 50000,
+            "photo_url": "https://www.mediafire.com/convkey/5e46/ejxbgzriujkkg116g.jpg"
+        }]
     except Exception as e:
-        print(f"خطا در گرفتن آپدیت‌ها: {e}")
-        return products
-    
-    for update in updates:
-        if update and hasattr(update, 'channel_post') and update.channel_post is not None:
-            message = update.channel_post
-            if hasattr(message, 'chat_id') and message.chat_id is not None and str(message.chat_id) == CHANNEL_ID:
-                print(f"پیام پیدا شد: text={message.text}")
-                if message.text:
-                    print(f"پست با متن پیدا شد: {message.text}")
-                    lines = message.text.split('\n')
-                    product = {}
-                    for line in lines:
-                        print(f"خط در حال بررسی: {line}")
-                        if "دسته‌بندی:" in line:
-                            product["category"] = line.split(":")[1].strip()
-                        elif "نام:" in line:
-                            product["name"] = line.split(":")[1].strip()
-                        elif "سایز:" in line:
-                            product["size"] = line.split(":")[1].strip()
-                        elif "رنگ:" in line:
-                            product["color"] = line.split(":")[1].strip()
-                        elif "تعداد:" in line:
-                            product["stock"] = int(line.split(":")[1].strip())
-                        elif "قیمت:" in line:
-                            product["price"] = int(line.split(":")[1].strip().replace(" تومان", ""))
-                    if product.get("category") == category:
-                        products.append(product)
-                        print(f"محصول اضافه شد: {product}")
-    
-    print(f"تعداد محصولات پیدا شده: {len(products)}")
-    return products
+        print(f"خطا در خوندن فایل JSON: {e}")
+        return []
 
 # نمایش رسید
 async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -224,7 +199,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["selected_category"] = category
         products = await fetch_products(context, category)
         if not products:
-            await query.edit_message_text("محصولی توی این دسته‌بندی پیدا نشد! مطمئن شو توی کانال با فرمت درست پست گذاشتی.")
+            await query.edit_message_text("محصولی توی این دسته‌بندی پیدا نشد!")
             return
         
         for product in products:
@@ -234,12 +209,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                        f"تعداد موجود: {product['stock']}\n"
                        f"**قیمت: {product['price']} تومان**")
             keyboard = [[InlineKeyboardButton("خرید", callback_data=f"buy_{product['name']}")]]
-            await context.bot.send_message(
-                chat_id=query.message.chat_id,
-                text=caption,
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode="Markdown"
-            )
+            if "photo_url" in product and product["photo_url"]:
+                await context.bot.send_photo(
+                    chat_id=query.message.chat_id,
+                    photo=product["photo_url"],
+                    caption=caption,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="Markdown"
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=query.message.chat_id,
+                    text=caption,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="Markdown"
+                )
     elif choice.startswith("buy_"):
         product_name = choice.replace("buy_", "")
         context.user_data["selected_product"] = product_name
@@ -366,8 +350,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # اجرای ربات
 def main():
-    # تنظیم اندازه pool و timeout با مقادیر بزرگ‌تر
-    app = Application.builder().token(BOT_TOKEN).connect_timeout(30).pool_timeout(30).connection_pool_size(50).build()
+    app = Application.builder().token(BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
