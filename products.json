@@ -1,0 +1,70 @@
+{
+  "گیاهان": [
+    {
+      "name": "کاکتوس",
+      "size": "کوچک",
+      "color": "سبز",
+      "stock": 10,
+      "price": 50000,
+      "photo_url": "https://www.mediafire.com/convkey/5e46/ejxbgzriujkkg116g.jpg"
+    },
+    {
+      "name": "ساکولنت",
+      "size": "متوسط",
+      "color": "بنفش",
+      "stock": 5,
+      "price": 75000,
+      "photo_url": "https://www.mediafire.com/convkey/5e46/ejxbgzriujkkg116g.jpg"
+    }
+  ],
+  "خاک": [
+    {
+      "name": "خاک کاکتوس",
+      "size": "1 کیلو",
+      "color": "قهوه‌ای",
+      "stock": 20,
+      "price": 30000,
+      "photo_url": "https://www.mediafire.com/convkey/5e46/ejxbgzriujkkg116g.jpg"
+    }
+  ],
+  "گلدان": [
+    {
+      "name": "گلدان سفالی",
+      "size": "متوسط",
+      "color": "قهوه‌ای",
+      "stock": 15,
+      "price": 40000,
+      "photo_url": "https://www.mediafire.com/convkey/5e46/ejxbgzriujkkg116g.jpg"
+    }
+  ],
+  "بذر": [
+    {
+      "name": "بذر کاکتوس",
+      "size": "کوچک",
+      "color": "مشکی",
+      "stock": 50,
+      "price": 20000,
+      "photo_url": "https://www.mediafire.com/convkey/5e46/ejxbgzriujkkg116g.jpg"
+    }
+  ],
+  "کود": [
+    {
+      "name": "کود مایع",
+      "size": "500 میلی‌لیتر",
+      "color": "شفاف",
+      "stock": 10,
+      "price": 60000,
+      "photo_url": "https://www.mediafire.com/convkey/5e46/ejxbgzriujkkg116g.jpg"
+    }
+  ],
+  "ملزومات باغبانی": [
+    {
+      "name": "قیچی باغبانی",
+      "size": "استاندارد",
+      "color": "قرمز",
+      "stock": 8,
+      "price": 85000,
+      "photo_url": "https://www.mediafire.com/convkey/5e46/ejxbgzriujkkg116g.jpg"
+    }
+  ]
+}
