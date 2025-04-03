@@ -48,21 +48,6 @@ def get_users():
             return json.load(f)
     return {}
 
-# ماژول جدید برای مدیریت پاسخ ادمین
-async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if str(update.message.from_user.id) != ADMIN_ID:
-        return  # فقط ادمین می‌تونه جواب بده
-    
-    if update.message.reply_to_message and update.message.reply_to_message.forward_from:
-        target_user_id = update.message.reply_to_message.forward_from.id
-        await context.bot.send_message(
-            chat_id=target_user_id,
-            text=update.message.text
-        )
-        print(f"پاسخ ادمین به کاربر {target_user_id} ارسال شد")
-    else:
-        await update.message.reply_text("لطفاً روی پیام فوروارد‌شده از کاربر ریپلای کن!")
-
 # منوی اصلی
 def main_menu():
     keyboard = [
@@ -213,6 +198,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["section"] = "treatment"
         context.user_data["first_message"] = True
         context.user_data["conversation"] = []
+        context.user_data["has_photo"] = False
     elif choice == "care":
         await query.edit_message_text("چه نوع گیاهی داری؟ 🌱 یه دسته‌بندی انتخاب کن:", reply_markup=care_category_menu())
     elif choice.startswith("care_"):
@@ -228,6 +214,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["section"] = "care"
         context.user_data["first_message"] = True
         context.user_data["conversation"] = []
+        context.user_data["has_photo"] = False
     elif choice == "education":
         await query.edit_message_text("یه موضوع آموزشی انتخاب کن:", reply_markup=education_menu())
     elif choice.startswith("edu_"):
@@ -417,6 +404,19 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     section = context.user_data.get("section", None)
     print(f"متن دریافت‌شده: {update.message.text}")
     
+    # پیام ادمین به آخرین کاربر
+    if str(user_id) == ADMIN_ID:
+        last_user_id = context.bot_data.get("last_user_id")
+        if last_user_id:
+            await context.bot.send_message(
+                chat_id=last_user_id,
+                text=update.message.text
+            )
+            print(f"پیام ادمین به کاربر {last_user_id} ارسال شد")
+        else:
+            await update.message.reply_text("هنوز کاربری پیام نفرستاده که جواب بدم!")
+        return
+    
     if context.user_data.get("awaiting_address", False):
         text = update.message.text.split("\n")
         print(f"اطلاعات آدرس دریافت‌شده: {text}")
@@ -475,6 +475,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     context.user_data["user_id"] = user_id
+    context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if section in ["treatment", "care"]:
@@ -504,11 +505,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             - احتیاط در تشخیص: یادآوری کنید که تشخیص دقیق بدون مشاهده مستقیم ممکن نیست.
             - لحن دوستانه: با لحنی صمیمی و مشتاق به کمک پاسخ دهید.
             - از اموجی‌های مرتبط مثل 🌱، 💧، ☀️، 🐞 استفاده کن.
+            - پاسخ‌ها کوتاه‌تر باشن: جوابات رو سعی کن خیلی طولانی نباشن، مثلا سوالات کوتاه و دوستانه بپرس مثل "چند روز در هفته آبیاری می‌کنی؟" یا "خاکش چطوره؟".
+            - درخواست عکس: اگه کاربر هنوز عکس نفرستاده، آخر پیام ازش بخواه عکس بفرسته. اگه عکس فرستاده، دیگه درخواست نکن.
+            - بخش درمان: سوالات کوتاه درباره مشکل گیاه بپرس.
+            - بخش نگهداری: سوالات کوتاه درباره نگهداری بپرس و اسم گیاه رو بپرس، در صورت نیاز عکس بخواه.
 
             کاربر در مورد {section} گیاهش داره حرف می‌زنه.
             {f"دسته‌بندی گیاه: {context.user_data.get('care_category', 'مشخص نشده')}" if section == "care" else ""}
             تاریخچه مکالمه: {conversation}.
             آخرین پیام کاربر: "{update.message.text}".
+            آیا کاربر عکس فرستاده؟ {"بله" if context.user_data.get('has_photo', False) else "خیر"}.
             به فارسی، دوستانه و محترمانه جواب بده.
             """
             response = model.generate_content(prompt)
@@ -531,6 +537,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     context.user_data["user_id"] = user_id
+    context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("awaiting_receipt", False):
@@ -544,12 +551,51 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"رسید پرداخت به ادمین فوروارد شد (نوع: {pending_type})")
         context.user_data["awaiting_receipt"] = False
     elif context.user_data.get("section") in ["treatment", "care"]:
-        await update.message.reply_text("ممنونم که عکس فرستادی، برای متخصصمون فرستادم، منتظر جوابش باش 🌿")
+        context.user_data["has_photo"] = True  # کاربر عکس فرستاده
+        await update.message.reply_text("ممنونم که عکس فرستادی، دارم بررسی می‌کنم 🌿")
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
         print("عکس درمان/نگهداری به ادمین فوروارد شد")
+        
         conversation = context.user_data.get("conversation", [])
         conversation.append({"role": "user", "content": "کاربر یک عکس از گیاهش فرستاده است."})
-        context.user_data["conversation"] = conversation
+        
+        loading_msg = await update.message.reply_text("در حال فکر کردن... 🌿")
+        try:
+            prompt = f"""
+            شما یک متخصص گیاه‌شناسی بسیار آگاه و با تجربه هستید که دانش عمیقی در زمینه‌های مختلف گیاهان از جمله گیاهان آپارتمانی، گیاهان دارویی، گیاهان کشاورزی، درختان، گل‌ها و سایر انواع گیاهان دارید. شما قادر به پاسخگویی دقیق و جامع به سوالات کاربران در مورد شناسایی گیاهان، نحوه نگهداری صحیح، مشکلات و بیماری‌های گیاهان، روش‌های تکثیر، خواص گیاهان دارویی و هر موضوع مرتبط دیگر هستید.
+
+            اصول پاسخگویی شما:
+            - دقت و صحت: همواره پاسخ‌های دقیق و مبتنی بر دانش علمی ارائه دهید.
+            - جامعیت: تمام جوانب سوال کاربر را پوشش دهید.
+            - وضوح و سادگی: از زبانی ساده و قابل فهم استفاده کنید.
+            - راهنمایی عملی: راهکارهای عملی و قابل اجرا ارائه دهید.
+            - توجه به جزئیات: به جزئیات مطرح‌شده توسط کاربر توجه کنید.
+            - پرسش‌های تکمیلی: در صورت نیاز سوالات تکمیلی بپرس مثل "چند روز در هفته آبیاری می‌کنی؟" یا "خاکش چطوره؟".
+            - احتیاط در تشخیص: یادآوری کنید که تشخیص دقیق بدون مشاهده مستقیم ممکن نیست.
+            - لحن دوستانه: با لحنی صمیمی و مشتاق به کمک پاسخ دهید.
+            - از اموجی‌های مرتبط مثل 🌱، 💧، ☀️، 🐞 استفاده کن.
+            - پاسخ‌ها کوتاه‌تر باشن: جوابات رو سعی کن خیلی طولانی نباشن، سوالات کوتاه و دوستانه بپرس.
+            - درخواست عکس: چون کاربر عکس فرستاده، دیگه درخواست عکس نکن.
+            - بخش درمان: سوالات کوتاه درباره مشکل گیاه بپرس.
+            - بخش نگهداری: سوالات کوتاه درباره نگهداری بپرس و اسم گیاه رو بپرس.
+
+            کاربر در مورد {section} گیاهش داره حرف می‌زنه.
+            {f"دسته‌بندی گیاه: {context.user_data.get('care_category', 'مشخص نشده')}" if section == "care" else ""}
+            تاریخچه مکالمه: {conversation}.
+            آخرین پیام کاربر: "کاربر یک عکس از گیاهش فرستاده است.".
+            به فارسی، دوستانه و محترمانه جواب بده.
+            """
+            response = model.generate_content(prompt)
+            answer_fa = response.text
+            
+            conversation.append({"role": "assistant", "content": answer_fa})
+            context.user_data["conversation"] = conversation
+            
+            await context.bot.delete_message(chat_id=user_id, message_id=loading_msg.message_id)
+            await update.message.reply_text(answer_fa)
+        except Exception as e:
+            await context.bot.delete_message(chat_id=user_id, message_id=loading_msg.message_id)
+            await update.message.reply_text(f"خطا: {str(e)}. دوباره امتحان کن! ⚠️")
     else:
         await update.message.reply_text("عکس رو گرفتم، ولی نمی‌دونم چی باهاش کنم! لطفاً توضیح بده 🌱")
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
@@ -563,6 +609,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     context.user_data["user_id"] = user_id
+    context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("section") == "visit_home" and "visit_home_info" in context.user_data:
@@ -611,7 +658,6 @@ def main():
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
-    app.add_handler(MessageHandler(filters.REPLY & filters.TEXT, handle_admin_reply))  # ماژول پاسخ ادمین
     
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"یه خطا پیش اومد: {context.error}")
