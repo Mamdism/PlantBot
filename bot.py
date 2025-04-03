@@ -145,6 +145,7 @@ async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         product = next(p for p in products if p["name"] == product_name)
         print(f"محصول پیدا شده: {product}")
+        context.user_data["selected_product_price"] = product["price"]  # ذخیره قیمت برای پرداخت
     except StopIteration:
         print(f"خطا: محصول {product_name} توی دسته‌بندی {category} پیدا نشد!")
         await update.message.reply_text(f"مشکلی پیش اومد! محصول '{product_name}' توی دسته‌بندی '{category}' پیدا نشد.")
@@ -356,7 +357,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif choice == "pay_visit_home_card":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=f"قابلتونو نداره\nمبلغ قابل پرداخت: ۲۰۰ هزار تومان\nلطفاً مبلغ رو به این کارت واریز کن و رسیدش رو بفرست:\n{CARD_INFO}"
+            text=f"قابلتونو نداره مبلغ ۲۰۰ هزار تومان باید برای بیعانه پرداخت کنید\nلطفاً مبلغ رو به این کارت واریز کن و رسیدش رو بفرست:\n{CARD_INFO}"
         )
         context.user_data["awaiting_receipt"] = True
         context.user_data["pending_type"] = "visit_home"
@@ -380,7 +381,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif choice == "pay_visit_online_card":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=f"قابلتونو نداره\nمبلغ قابل پرداخت: ۲۵۰ هزار تومان\nلطفاً مبلغ رو به این کارت واریز کن و رسیدش رو بفرست:\n{CARD_INFO}"
+            text=f"قابلتونو نداره مبلغ ۲۵۰ هزار تومان باید برای بیعانه پرداخت کنید\nلطفاً مبلغ رو به این کارت واریز کن و رسیدش رو بفرست:\n{CARD_INFO}"
         )
         context.user_data["awaiting_receipt"] = True
         context.user_data["pending_type"] = "visit_online"
@@ -407,7 +408,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # پیام ادمین به آخرین کاربر با بازنگری جیمینی
     if str(user_id) == ADMIN_ID:
         last_user_id = context.bot_data.get("last_user_id")
-        if last_user_id:
+        if last_user_id and context.bot_data.get("awaiting_admin_response", False):
             try:
                 prompt = f"""
                 پیام ادمین: "{update.message.text}"
@@ -420,14 +421,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     text=refined_message
                 )
                 print(f"پیام بازنگری‌شده ادمین به کاربر {last_user_id} ارسال شد")
+                context.bot_data["awaiting_admin_response"] = False
             except Exception as e:
                 await context.bot.send_message(
                     chat_id=last_user_id,
                     text=update.message.text  # اگه جیمینی خطا داد، پیام خام بفرست
                 )
                 print(f"خطای جیمینی در بازنگری: {e} - پیام خام ارسال شد")
-        else:
-            await update.message.reply_text("هنوز کاربری پیام نفرستاده که جواب بدم!")
         return
     
     if context.user_data.get("awaiting_address", False):
@@ -489,6 +489,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
+    context.bot_data["awaiting_admin_response"] = True  # منتظر پاسخ ادمین
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if section in ["treatment", "care"]:
@@ -516,7 +517,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             - توجه به جزئیات: به جزئیات مطرح‌شده توسط کاربر توجه کنید.
             - پرسش‌های تکمیلی: در صورت نیاز سوالات تکمیلی بپرس مثل "چند روز در هفته آبیاری می‌کنی؟" یا "خاکش چطوره؟".
             - احتیاط در تشخیص: یادآوری کنید که تشخیص دقیق بدون مشاهده مستقیم ممکن نیست.
-            - لحن دوستانه: با لحنی صمیمی و مشتاق به کمک پاسخ دهید.
+            - لحن دوستانه: با لحن صمیمی و مشتاق به کمک پاسخ دهید.
             - از اموجی‌های مرتبط مثل 🌱، 💧، ☀️، 🐞 استفاده کن.
             - پاسخ‌ها کوتاه‌تر باشن: جوابات رو سعی کن خیلی طولانی نباشن، سوالات کوتاه و دوستانه بپرس.
             - درخواست عکس: اگه کاربر هنوز عکس نفرستاده، آخر پیام ازش بخواه عکس بفرسته. اگه عکس فرستاده، دیگه درخواست نکن.
@@ -545,24 +546,45 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # مدیریت عکس‌ها
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    section = context.user_data.get("section", None)  # رفع خطا با گرفتن section از context
+    section = context.user_data.get("section", None)
     if str(user_id) == ADMIN_ID:
         print(f"عکس از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
+    context.bot_data["awaiting_admin_response"] = True  # منتظر پاسخ ادمین
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("awaiting_receipt", False):
         pending_type = context.user_data.get("pending_type")
-        await update.message.reply_text("سفارش شما ثبت شد و در حال بررسی می‌باشد 🌱")
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"رسید پرداخت از کاربر با آیدی: {user_id} (نوع: {pending_type})"
         )
         print(f"رسید پرداخت به ادمین فوروارد شد (نوع: {pending_type})")
+        
+        try:
+            prompt = f"""
+            کاربر رسید پرداخت برای {pending_type} فرستاده.
+            یه پیام دوستانه و صمیمی برای کاربر جنریت کن که بگه سفارشش ثبت شده و به زودی به دستش می‌رسه. از استایل‌های زیر ایده بگیر و با توجه به نوع سفارش (محصول، ویزیت حضوری یا آنلاین) پیام رو تنظیم کن. از اموجی‌های مرتبط مثل 🌱، 💧، ☀️، 🐞 استفاده کن:
+
+            ۱. سبک دوستانه و صمیمی: "سلام دوست عزیز 👋 سفارشت با موفقیت ثبت شد 🌱 خیالت راحت، به زودی به دستت می‌رسه! 📦"
+            ۲. سبک مهربان و انرژی‌بخش: "سلام ☀️ سفارشت ثبت شد! از انتخابت ممنونیم 😊 به زودی مثل یه 🐞 کوچولو برات میاریمش!"
+            ۳. سبک ساده و صمیمی: "سفارشت اوکی شد! 😉 منتظر باش به زودی میاد 🚀"
+            ۴. سبک بامزه و کمی رسمی‌تر: "با سلام 😊 سفارش شما با موفقیت ثبت گردید 🌱 از صبر و شکیبایی شما سپاسگزاریم 🙏"
+            ۵. سبک آرامش‌بخش: "سلام 🌿 سفارشت ثبت شد و با آرامش منتظر رسیدنش باش 🧘‍♀️"
+
+            به فارسی و با لحن مثبت جواب بده.
+            """
+            response = model.generate_content(prompt)
+            confirmation_message = response.text
+            await update.message.reply_text(confirmation_message)
+        except Exception as e:
+            await update.message.reply_text("سفارش شما ثبت شد و در حال بررسی می‌باشد 🌱")
+            print(f"خطای جیمینی در جنریت پیام: {e}")
+        
         context.user_data["awaiting_receipt"] = False
     elif section in ["treatment", "care"]:
         context.user_data["has_photo"] = True  # کاربر عکس فرستاده
@@ -624,6 +646,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
+    context.bot_data["awaiting_admin_response"] = True  # منتظر پاسخ ادمین
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("section") == "visit_home" and "visit_home_info" in context.user_data:
