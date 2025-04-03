@@ -165,8 +165,14 @@ async def show_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_gateway")],
         [InlineKeyboardButton("کارت به کارت", callback_data="pay_card")]
     ]
+    # ارسال رسید به کاربر
     await update.message.reply_text(receipt, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-    print("رسید با موفقیت به کاربر ارسال شد")
+    # ارسال رسید به ادمین
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=receipt
+    )
+    print("رسید با موفقیت به کاربر و ادمین ارسال شد")
 
 # شروع ربات
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
