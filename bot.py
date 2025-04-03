@@ -174,9 +174,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     users = get_users()
     
     if str(user_id) not in users:
-        keyboard = [[KeyboardButton("اشتراک تماس", request_contact=True)]]
+        keyboard = [[KeyboardButton("اطلاعات تماس شما", request_contact=True)]]
         await update.message.reply_text(
-            "به دستیار گل و گیاهتون هیوا خوش اومدین💚\nلطفاً برای ثبت‌نام، تماس خودت رو اشتراک کن:",
+            "به دستیار گل و گیاهتون هیوا خوش اومدین💚\nلطفاً برای ثبت‌نام، اطلاعات تماس خودت رو اشتراک کن:",
             reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
         )
     else:
@@ -405,29 +405,17 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     section = context.user_data.get("section", None)
     print(f"متن دریافت‌شده: {update.message.text}")
     
-    # پیام ادمین به آخرین کاربر با بازنگری جیمینی
+    # پیام ادمین به آخرین کاربر (بدون بازنویسی جیمینی)
     if str(user_id) == ADMIN_ID:
         last_user_id = context.bot_data.get("last_user_id")
-        if last_user_id and context.bot_data.get("awaiting_admin_response", False):
-            try:
-                prompt = f"""
-                پیام ادمین: "{update.message.text}"
-                این پیام رو با استایل خودت مرتب‌تر و دوستانه‌تر کن. از لحن صمیمی و اموجی‌های مرتبط مثل 🌱، 💧، ☀️، 🐞 استفاده کن. به فارسی جواب بده.
-                """
-                response = model.generate_content(prompt)
-                refined_message = response.text
-                await context.bot.send_message(
-                    chat_id=last_user_id,
-                    text=refined_message
-                )
-                print(f"پیام بازنگری‌شده ادمین به کاربر {last_user_id} ارسال شد")
-                context.bot_data["awaiting_admin_response"] = False
-            except Exception as e:
-                await context.bot.send_message(
-                    chat_id=last_user_id,
-                    text=update.message.text  # اگه جیمینی خطا داد، پیام خام بفرست
-                )
-                print(f"خطای جیمینی در بازنگری: {e} - پیام خام ارسال شد")
+        if last_user_id:
+            await context.bot.send_message(
+                chat_id=last_user_id,
+                text=update.message.text
+            )
+            print(f"پیام ادمین به کاربر {last_user_id} ارسال شد")
+        else:
+            await update.message.reply_text("هنوز کاربری پیام نفرستاده که جواب بدم!")
         return
     
     if context.user_data.get("awaiting_address", False):
@@ -477,7 +465,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
             context.user_data["awaiting_visit_online_info"] = False
             await update.message.reply_text(
-                "ممنون! حالا مبلغ ۲۵۰ هزار تومان رو پرداخت کن:",
+                "ممنونم! حالا نحوه پرداختت رو انتخاب کن:",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_visit_online_gateway")],
                     [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_online_card")]
@@ -489,7 +477,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
-    context.bot_data["awaiting_admin_response"] = True  # منتظر پاسخ ادمین
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if section in ["treatment", "care"]:
@@ -517,7 +504,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             - توجه به جزئیات: به جزئیات مطرح‌شده توسط کاربر توجه کنید.
             - پرسش‌های تکمیلی: در صورت نیاز سوالات تکمیلی بپرس مثل "چند روز در هفته آبیاری می‌کنی؟" یا "خاکش چطوره؟".
             - احتیاط در تشخیص: یادآوری کنید که تشخیص دقیق بدون مشاهده مستقیم ممکن نیست.
-            - لحن دوستانه: با لحن صمیمی و مشتاق به کمک پاسخ دهید.
+            - لحن دوستانه: با لحنی صمیمی و مشتاق به کمک پاسخ دهید.
             - از اموجی‌های مرتبط مثل 🌱، 💧، ☀️، 🐞 استفاده کن.
             - پاسخ‌ها کوتاه‌تر باشن: جوابات رو سعی کن خیلی طولانی نباشن، سوالات کوتاه و دوستانه بپرس.
             - درخواست عکس: اگه کاربر هنوز عکس نفرستاده، آخر پیام ازش بخواه عکس بفرسته. اگه عکس فرستاده، دیگه درخواست نکن.
@@ -553,7 +540,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
-    context.bot_data["awaiting_admin_response"] = True  # منتظر پاسخ ادمین
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("awaiting_receipt", False):
@@ -563,75 +549,14 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=ADMIN_ID,
             text=f"رسید پرداخت از کاربر با آیدی: {user_id} (نوع: {pending_type})"
         )
+        await update.message.reply_text("رسیدت رو دریافت کردیم و در صورت تایید توسط ادمین باهاتون جهت هماهنگی تماس می‌گیریم؛ تشکر از انتخابتون 💚")
         print(f"رسید پرداخت به ادمین فوروارد شد (نوع: {pending_type})")
-        
-        try:
-            prompt = f"""
-            کاربر رسید پرداخت برای {pending_type} فرستاده.
-            یه پیام دوستانه و صمیمی برای کاربر جنریت کن که بگه سفارشش ثبت شده و به زودی به دستش می‌رسه. از استایل‌های زیر ایده بگیر و با توجه به نوع سفارش (محصول، ویزیت حضوری یا آنلاین) پیام رو تنظیم کن. از اموجی‌های مرتبط مثل 🌱، 💧، ☀️، 🐞 استفاده کن:
-
-            ۱. سبک دوستانه و صمیمی: "سلام دوست عزیز 👋 سفارشت با موفقیت ثبت شد 🌱 خیالت راحت، به زودی به دستت می‌رسه! 📦"
-            ۲. سبک مهربان و انرژی‌بخش: "سلام ☀️ سفارشت ثبت شد! از انتخابت ممنونیم 😊 به زودی مثل یه 🐞 کوچولو برات میاریمش!"
-            ۳. سبک ساده و صمیمی: "سفارشت اوکی شد! 😉 منتظر باش به زودی میاد 🚀"
-            ۴. سبک بامزه و کمی رسمی‌تر: "با سلام 😊 سفارش شما با موفقیت ثبت گردید 🌱 از صبر و شکیبایی شما سپاسگزاریم 🙏"
-            ۵. سبک آرامش‌بخش: "سلام 🌿 سفارشت ثبت شد و با آرامش منتظر رسیدنش باش 🧘‍♀️"
-
-            به فارسی و با لحن مثبت جواب بده.
-            """
-            response = model.generate_content(prompt)
-            confirmation_message = response.text
-            await update.message.reply_text(confirmation_message)
-        except Exception as e:
-            await update.message.reply_text("سفارش شما ثبت شد و در حال بررسی می‌باشد 🌱")
-            print(f"خطای جیمینی در جنریت پیام: {e}")
-        
         context.user_data["awaiting_receipt"] = False
     elif section in ["treatment", "care"]:
         context.user_data["has_photo"] = True  # کاربر عکس فرستاده
-        await update.message.reply_text("ممنونم که عکس فرستادی، دارم بررسی می‌کنم 🌿")
+        await update.message.reply_text("برای متخصصمون فرستادم، بزودی بهت جواب می‌دیم 🫰🏼")
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
         print("عکس درمان/نگهداری به ادمین فوروارد شد")
-        
-        conversation = context.user_data.get("conversation", [])
-        conversation.append({"role": "user", "content": "کاربر یک عکس از گیاهش فرستاده است."})
-        
-        loading_msg = await update.message.reply_text("در حال فکر کردن... 🌿")
-        try:
-            prompt = f"""
-            شما یک متخصص گیاه‌شناسی بسیار آگاه و با تجربه هستید که دانش عمیقی در زمینه‌های مختلف گیاهان از جمله گیاهان آپارتمانی، گیاهان دارویی، گیاهان کشاورزی، درختان، گل‌ها و سایر انواع گیاهان دارید. شما قادر به پاسخگویی دقیق و جامع به سوالات کاربران در مورد شناسایی گیاهان، نحوه نگهداری صحیح، مشکلات و بیماری‌های گیاهان، روش‌های تکثیر، خواص گیاهان دارویی و هر موضوع مرتبط دیگر هستید.
-
-            اصول پاسخگویی شما:
-            - دقت و صحت: همواره پاسخ‌های دقیق و مبتنی بر دانش علمی ارائه دهید.
-            - جامعیت: تمام جوانب سوال کاربر را پوشش دهید.
-            - وضوح و سادگی: از زبانی ساده و قابل فهم استفاده کنید.
-            - راهنمایی عملی: راهکارهای عملی و قابل اجرا ارائه دهید.
-            - توجه به جزئیات: به جزئیات مطرح‌شده توسط کاربر توجه کنید.
-            - پرسش‌های تکمیلی: در صورت نیاز سوالات تکمیلی بپرس مثل "چند روز در هفته آبیاری می‌کنی؟" یا "خاکش چطوره؟".
-            - احتیاط در تشخیص: یادآوری کنید که تشخیص دقیق بدون مشاهده مستقیم ممکن نیست.
-            - لحن دوستانه: با لحن صمیمی و مشتاق به کمک پاسخ دهید.
-            - از اموجی‌های مرتبط مثل 🌱، 💧، ☀️، 🐞 استفاده کن.
-            - پاسخ‌ها کوتاه‌تر باشن: جوابات رو سعی کن خیلی طولانی نباشن، سوالات کوتاه و دوستانه بپرس.
-            - درخواست عکس: چون کاربر عکس فرستاده، دیگه درخواست عکس نکن.
-            - بخش درمان: سوالات کوتاه درباره مشکل گیاه بپرس.
-            - بخش نگهداری: سوالات کوتاه درباره نگهداری بپرس و اسم گیاه رو بپرس.
-
-            کاربر در مورد {section} گیاهش داره حرف می‌زنه.
-            {f"دسته‌بندی گیاه: {context.user_data.get('care_category', 'مشخص نشده')}" if section == "care" else ""}
-            تاریخچه مکالمه: {conversation}.
-            آخرین پیام کاربر: "کاربر یک عکس از گیاهش فرستاده است.".
-            به فارسی، دوستانه و محترمانه جواب بده.
-            """
-            response = model.generate_content(prompt)
-            answer_fa = response.text
-            
-            conversation.append({"role": "assistant", "content": answer_fa})
-            context.user_data["conversation"] = conversation
-            
-            await context.bot.delete_message(chat_id=user_id, message_id=loading_msg.message_id)
-            await update.message.reply_text(answer_fa)
-        except Exception as e:
-            await context.bot.delete_message(chat_id=user_id, message_id=loading_msg.message_id)
-            await update.message.reply_text(f"خطا: {str(e)}. دوباره امتحان کن! ⚠️")
     else:
         await update.message.reply_text("عکس رو گرفتم، ولی نمی‌دونم چی باهاش کنم! لطفاً توضیح بده 🌱")
         await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
@@ -646,13 +571,12 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
-    context.bot_data["awaiting_admin_response"] = True  # منتظر پاسخ ادمین
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("section") == "visit_home" and "visit_home_info" in context.user_data:
         context.user_data["visit_home_info"]["location"] = update.message.location
         await update.message.reply_text(
-            "ممنون ازت! حالا بیعانه ۲۰۰ هزار تومان رو پرداخت کن:",
+            "ممنونم ازت! نحوه پرداختت رو انتخاب کن:",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_visit_home_gateway")],
                 [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
