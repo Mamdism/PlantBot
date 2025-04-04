@@ -5,8 +5,8 @@ import requests
 import json
 import os
 
-# آیدی عددی تلگرام ادمین
-ADMIN_ID = "6325733331"
+# آیدی عددی تلگرام ادمین‌ها
+ADMIN_IDS = ["1478363268", "6325733331"]
 
 # توکن ربات
 BOT_TOKEN = "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4"
@@ -227,7 +227,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     elif choice == "products":
         await query.edit_message_text(
-            "محصولاتمون رو اینجا ببین: کلی تخفیف و گیاه جدید منتظرته 🥰",  # پیام کوتاه
+            "محصولاتمون رو اینجا ببین: کلی تخفیف و گیاه جدید منتظرته 🥰",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("ورود به کانال 🌱", url="https://t.me/hiwagarden")]
             ])
@@ -236,7 +236,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             "ویزیت حضوری 🌿:\n"
             "موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
-            "بررسی کودهای مورد نیاز هم انجام می‌شه؛ جهت رزور ویزیت حضوری باید مبلغ ۲۰۰ هزارتومان برای بیعانه پرداخت کنید.\n\n"
+            "بررسی کودهای مورد نیاز هم انجام می‌شه.\n"
+            "در حال حاضر فقط توی رشت به‌صورت تخصصی ویزیت حضوری داریم و به‌زودی قراره این خدمات رو تو کل کشور گسترش بدیم 🌍\n"
+            "اگه رشت نیستین، می‌تونین از ویزیت آنلاین ما استفاده کنین 💻\n"
+            "اگه متخصص گل و گیاه هستین و می‌تونین توی شهرتون ویزیت حضوری انجام بدین، برای هماهنگی به @Hiwa_garden پیام بدین 🌱\n"
+            "برای رزرو ویزیت حضوری، باید مبلغ ۲۰۰ هزارتومان به‌عنوان بیعانه پرداخت کنین.\n\n"
             "لطفاً تعداد گیاهان و توضیحات رو بنویس و بعد مشخصات و آدرس رو وارد کن:\n"
             "نام و نام خانوادگی:\n"
             "شماره تلفن:\n"
@@ -264,7 +268,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             "ویزیت آنلاین 🌱:\n"
             "موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
-            "بررسی کودهای مورد نیاز هم انجام می‌شه.\n\n"
+            "بررسی کودهای مورد نیاز هم انجام می‌شه؛ جهت رزرو ویزیت آنلاین باید مبلغ ۲۵۰ هزارتومان پرداخت کنید.\n\n"
             "لطفاً تعداد گیاهان و توضیحات رو بنویس و بعد مشخصات رو وارد کن:\n"
             "نام و نام خانوادگی:\n"
             "شماره تلفن:\n"
@@ -303,7 +307,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"متن دریافت‌شده: {text}")
     
     # پیام ادمین به آخرین کاربر
-    if str(user_id) == ADMIN_ID:
+    if str(user_id) in ADMIN_IDS:
         last_user_id = context.bot_data.get("last_user_id")
         if last_user_id:
             await context.bot.send_message(
@@ -340,7 +344,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     elif text == "محصولات":
         await update.message.reply_text(
-            "محصولاتمون رو اینجا ببین:",  # پیام کوتاه
+            "محصولاتمون رو اینجا ببین: کلی تخفیف و گیاه جدید منتظرته 🥰",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("ورود به کانال 🌱", url="https://t.me/hiwagarden")]
             ])
@@ -350,7 +354,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "ویزیت حضوری 🌿:\n"
             "موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
-            "بررسی کودهای مورد نیاز هم انجام می‌شه؛ جهت رزور ویزیت حضوری باید مبلغ ۲۰۰ هزارتومان برای بیعانه پرداخت کنید.\n\n"
+            "بررسی کودهای مورد نیاز هم انجام می‌شه.\n"
+            "در حال حاضر فقط توی رشت به‌صورت تخصصی ویزیت حضوری داریم و به‌زودی قراره این خدمات رو تو کل کشور گسترش بدیم 🌍\n"
+            "اگه رشت نیستین، می‌تونین از ویزیت آنلاین ما استفاده کنین 💻\n"
+            "اگه متخصص گل و گیاه هستین و می‌تونین توی شهرتون ویزیت حضوری انجام بدین، برای هماهنگی به @Hiwa_garden پیام بدین 🌱\n"
+            "برای رزرو ویزیت حضوری، باید مبلغ ۲۰۰ هزارتومان به‌عنوان بیعانه پرداخت کنین.\n\n"
             "لطفاً تعداد گیاهان و توضیحات رو بنویس و بعد مشخصات و آدرس رو وارد کن:\n"
             "نام و نام خانوادگی:\n"
             "شماره تلفن:\n"
@@ -365,7 +373,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "ویزیت آنلاین 🌱:\n"
             "موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
-            "بررسی کودهای مورد نیاز هم انجام می‌شه؛ جهت رزور ویزیت آنلاین باید مبلغ ۲۵۰ هزارتومان پرداخت کنید.\n\n"
+            "بررسی کودهای مورد نیاز هم انجام می‌شه؛ جهت رزرو ویزیت آنلاین باید مبلغ ۲۵۰ هزارتومان پرداخت کنید.\n\n"
             "لطفاً تعداد گیاهان و توضیحات رو بنویس و بعد مشخصات رو وارد کن:\n"
             "نام و نام خانوادگی:\n"
             "شماره تلفن:\n"
@@ -403,6 +411,20 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "phone": text_lines[2] if len(text_lines) > 2 else ""
             }
             context.user_data["awaiting_visit_online_info"] = False
+            # ارسال اطلاعات به ادمین‌ها
+            visit_info = context.user_data["visit_online_info"]
+            for admin_id in ADMIN_IDS:
+                try:
+                    await context.bot.send_message(
+                        chat_id=admin_id,
+                        text=f"درخواست ویزیت آنلاین از کاربر با آیدی: {user_id}\n"
+                             f"تعداد گیاهان و توضیحات: {visit_info['plants']}\n"
+                             f"نام: {visit_info['name']}\n"
+                             f"شماره: {visit_info['phone']}"
+                    )
+                    print(f"اطلاعات ویزیت آنلاین به ادمین {admin_id} ارسال شد")
+                except Exception as e:
+                    print(f"خطا در ارسال اطلاعات ویزیت آنلاین به ادمین {admin_id}: {e}")
             await update.message.reply_text(
                 "ممنون! حالا نحوه پرداخت رو انتخاب کن:",
                 reply_markup=InlineKeyboardMarkup([
@@ -419,8 +441,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if section in ["treatment", "care"]:
-        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
-        print(f"متن به ادمین فوروارد شد (بخش: {section})")
+        for admin_id in ADMIN_IDS:
+            try:
+                await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
+                print(f"متن به ادمین {admin_id} فوروارد شد (بخش: {section})")
+            except Exception as e:
+                print(f"خطا در فوروارد متن به ادمین {admin_id}: {e}")
         
         if context.user_data.get("first_message", True):
             loading_msg = await update.message.reply_text("در حال فکر کردن... 🌱")
@@ -473,7 +499,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     section = context.user_data.get("section", None)
-    if str(user_id) == ADMIN_ID:
+    if str(user_id) in ADMIN_IDS:
         print(f"عکس از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
     
@@ -483,37 +509,49 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if context.user_data.get("awaiting_receipt", False):
         pending_type = context.user_data.get("pending_type")
-        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"رسید پرداخت از کاربر با آیدی: {user_id} (نوع: {pending_type})"
-        )
+        for admin_id in ADMIN_IDS:
+            try:
+                await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
+                await context.bot.send_message(
+                    chat_id=admin_id,
+                    text=f"رسید پرداخت از کاربر با آیدی: {user_id} (نوع: {pending_type})"
+                )
+                print(f"رسید پرداخت به ادمین {admin_id} فوروارد شد (نوع: {pending_type})")
+            except Exception as e:
+                print(f"خطا در فوروارد رسید به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "رسیدت رو دریافت کردیم و در صورت تایید توسط ادمین باهاتون جهت هماهنگی تماس می‌گیریم؛ تشکر از انتخابتون 💚",
             reply_markup=main_reply_keyboard()
         )
-        print(f"رسید پرداخت به ادمین فوروارد شد (نوع: {pending_type})")
         context.user_data["awaiting_receipt"] = False
     elif section in ["treatment", "care"]:
         context.user_data["has_photo"] = True  # کاربر عکس فرستاده
+        for admin_id in ADMIN_IDS:
+            try:
+                await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
+                print(f"عکس درمان/نگهداری به ادمین {admin_id} فوروارد شد")
+            except Exception as e:
+                print(f"خطا در فوروارد عکس به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "برای متخصصمون فرستادم، بزودی بهت جواب می‌دیم 🫰🏼",
             reply_markup=main_reply_keyboard()
         )
-        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
-        print("عکس درمان/نگهداری به ادمین فوروارد شد")
     else:
+        for admin_id in ADMIN_IDS:
+            try:
+                await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
+                print(f"عکس نامشخص به ادمین {admin_id} فوروارد شد")
+            except Exception as e:
+                print(f"خطا در فوروارد عکس به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "عکس رو گرفتم، ولی نمی‌دونم چی باهاش کنم! لطفاً توضیح بده 🌱",
             reply_markup=main_reply_keyboard()
         )
-        await context.bot.forward_message(chat_id=ADMIN_ID, from_chat_id=user_id, message_id=update.message.message_id)
-        print("عکس نامشخص به ادمین فوروارد شد")
 
 # مدیریت لوکیشن
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    if str(user_id) == ADMIN_ID:
+    if str(user_id) in ADMIN_IDS:
         print(f"لوکیشن از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
     
@@ -530,24 +568,25 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
             ])
         )
-        try:
-            visit_info = context.user_data["visit_home_info"]
-            await context.bot.send_message(
-                chat_id=ADMIN_ID,
-                text=f"درخواست ویزیت حضوری از کاربر با آیدی: {user_id}\n"
-                     f"تعداد گیاهان و توضیحات: {visit_info['plants']}\n"
-                     f"نام: {visit_info['name']}\n"
-                     f"شماره: {visit_info['phone']}\n"
-                     f"آدرس: {visit_info['address']}"
-            )
-            await context.bot.send_location(
-                chat_id=ADMIN_ID,
-                latitude=update.message.location.latitude,
-                longitude=update.message.location.longitude
-            )
-            print("اطلاعات و لوکیشن با موفقیت به ادمین ارسال شد")
-        except Exception as e:
-            print(f"خطا در ارسال اطلاعات و لوکیشن به ادمین: {e}")
+        visit_info = context.user_data["visit_home_info"]
+        for admin_id in ADMIN_IDS:
+            try:
+                await context.bot.send_message(
+                    chat_id=admin_id,
+                    text=f"درخواست ویزیت حضوری از کاربر با آیدی: {user_id}\n"
+                         f"تعداد گیاهان و توضیحات: {visit_info['plants']}\n"
+                         f"نام: {visit_info['name']}\n"
+                         f"شماره: {visit_info['phone']}\n"
+                         f"آدرس: {visit_info['address']}"
+                )
+                await context.bot.send_location(
+                    chat_id=admin_id,
+                    latitude=update.message.location.latitude,
+                    longitude=update.message.location.longitude
+                )
+                print(f"اطلاعات و لوکیشن با موفقیت به ادمین {admin_id} ارسال شد")
+            except Exception as e:
+                print(f"خطا در ارسال اطلاعات و لوکیشن به ادمین {admin_id}: {e}")
 
 # مدیریت تماس
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
