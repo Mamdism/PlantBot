@@ -6,7 +6,7 @@ import json
 import os
 
 # آیدی عددی تلگرام ادمین
-ADMIN_ID = "1478363268"
+ADMIN_ID = "6325733331"
 
 # توکن ربات
 BOT_TOKEN = "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4"
@@ -112,9 +112,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     users = get_users()
     
     if str(user_id) not in users:
-        keyboard = [[KeyboardButton("اشتراک تماس", request_contact=True)]]
+        keyboard = [[KeyboardButton("اطلاعات تماس", request_contact=True)]]
         await update.message.reply_text(
-            "به دستیار گل و گیاهتون هیوا خوش اومدین💚\nلطفاً برای ثبت‌نام، تماس خودت رو اشتراک کن:",
+            "به دستیار گل و گیاهتون هیوا خوش اومدین💚\nلطفاً برای ثبت‌نام، اطلاعات تماس خودت رو بفرست؛ این اطلاعات فقط جهت ثبت نام شما هست:",
             reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
         )
     else:
@@ -227,7 +227,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     elif choice == "products":
         await query.edit_message_text(
-            "محصولاتمون رو اینجا ببین:",  # پیام کوتاه
+            "محصولاتمون رو اینجا ببین: کلی تخفیف و گیاه جدید منتظرته 🥰",  # پیام کوتاه
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("ورود به کانال 🌱", url="https://t.me/hiwagarden")]
             ])
@@ -236,7 +236,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             "ویزیت حضوری 🌿:\n"
             "موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
-            "بررسی کودهای مورد نیاز هم انجام می‌شه.\n\n"
+            "بررسی کودهای مورد نیاز هم انجام می‌شه؛ جهت رزور ویزیت حضوری باید مبلغ ۲۰۰ هزارتومان برای بیعانه پرداخت کنید.\n\n"
             "لطفاً تعداد گیاهان و توضیحات رو بنویس و بعد مشخصات و آدرس رو وارد کن:\n"
             "نام و نام خانوادگی:\n"
             "شماره تلفن:\n"
@@ -350,7 +350,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "ویزیت حضوری 🌿:\n"
             "موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
-            "بررسی کودهای مورد نیاز هم انجام می‌شه.\n\n"
+            "بررسی کودهای مورد نیاز هم انجام می‌شه؛ جهت رزور ویزیت حضوری باید مبلغ ۲۰۰ هزارتومان برای بیعانه پرداخت کنید.\n\n"
             "لطفاً تعداد گیاهان و توضیحات رو بنویس و بعد مشخصات و آدرس رو وارد کن:\n"
             "نام و نام خانوادگی:\n"
             "شماره تلفن:\n"
@@ -365,7 +365,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "ویزیت آنلاین 🌱:\n"
             "موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
-            "بررسی کودهای مورد نیاز هم انجام می‌شه.\n\n"
+            "بررسی کودهای مورد نیاز هم انجام می‌شه؛ جهت رزور ویزیت آنلاین باید مبلغ ۲۵۰ هزارتومان پرداخت کنید.\n\n"
             "لطفاً تعداد گیاهان و توضیحات رو بنویس و بعد مشخصات رو وارد کن:\n"
             "نام و نام خانوادگی:\n"
             "شماره تلفن:\n"
@@ -404,7 +404,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
             context.user_data["awaiting_visit_online_info"] = False
             await update.message.reply_text(
-                "ممنون! حالا مبلغ ۲۵۰ هزار تومان رو پرداخت کن:",
+                "ممنون! حالا نحوه پرداخت رو انتخاب کن:",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_visit_online_gateway")],
                     [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_online_card")]
@@ -524,7 +524,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("section") == "visit_home" and "visit_home_info" in context.user_data:
         context.user_data["visit_home_info"]["location"] = update.message.location
         await update.message.reply_text(
-            "ممنون ازت! حالا بیعانه ۲۰۰ هزار تومان رو پرداخت کن:",
+            "ممنون ازت! حالا نحوه پرداختت رو انتخاب کن:",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_visit_home_gateway")],
                 [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
@@ -555,7 +555,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     contact = update.message.contact
     save_user(user_id, contact)
     await update.message.reply_text(
-        "ممنون! حالا ثبت شدی 🌱 یه گزینه انتخاب کن:",
+        "ممنون! به خونواده ما اضافه شدی 🌱 یه گزینه انتخاب کن:",
         reply_markup=main_reply_keyboard()
     )
 
