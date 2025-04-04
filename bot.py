@@ -91,8 +91,8 @@ def education_menu():
         [InlineKeyboardButton("طراحی و نگهداری فضای سبز", callback_data="edu_5")],
         [InlineKeyboardButton("مشکلات رایج و راهکارها", callback_data="edu_6")],
         [InlineKeyboardButton("روش‌های خاص نگهداری", callback_data="edu_7")],
-        [InlineKeyboardButton("نور و فتوسنتز", callback_data="edu_8")],  # نام تخصصی‌تر
-        [InlineKeyboardButton("انتخاب بستر کاشت", callback_data="edu_9")],  # نام تخصصی‌تر
+        [InlineKeyboardButton("نور و فتوسنتز", callback_data="edu_8")],
+        [InlineKeyboardButton("انتخاب بستر کاشت", callback_data="edu_9")],
         [InlineKeyboardButton("برگشت به منوی اصلی", callback_data="back_to_main")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -227,8 +227,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     elif choice == "products":
         await query.edit_message_text(
-            "برای دیدن محصولاتمون به کانالم مراجعه کن: @hiwagarden 🌱",
-            reply_markup=main_reply_keyboard()
+            "محصولاتمون رو اینجا ببین:",  # پیام کوتاه
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("ورود به کانال 🌱", url="https://t.me/hiwagarden")]
+            ])
         )
     elif choice == "visit_home":
         await query.edit_message_text(
@@ -338,8 +340,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     elif text == "محصولات":
         await update.message.reply_text(
-            "برای دیدن محصولاتمون به کانالم مراجعه کن: @hiwagarden 🌱",
-            reply_markup=main_reply_keyboard()
+            "محصولاتمون رو اینجا ببین:",  # پیام کوتاه
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("ورود به کانال 🌱", url="https://t.me/hiwagarden")]
+            ])
         )
         return
     elif text == "ویزیت حضوری":
@@ -373,26 +377,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # بقیه منطق برای آدرس و ویزیت‌ها
-    if context.user_data.get("awaiting_address", False):
-        text_lines = text.split("\n")
-        print(f"اطلاعات آدرس دریافت‌شده: {text_lines}")
-        if len(text_lines) == 6:
-            context.user_data["address"] = {
-                "name": text_lines[0],
-                "phone": text_lines[1],
-                "province": text_lines[2],
-                "city": text_lines[3],
-                "address": text_lines[4],
-                "postal_code": text_lines[5]
-            }
-            context.user_data["awaiting_address"] = False
-            print("آدرس با موفقیت ذخیره شد:")
-            print(context.user_data["address"])
-            await show_receipt(update, context)
-        else:
-            await update.message.reply_text("لطفاً همه‌ی اطلاعات رو توی ۶ خط بفرست!", reply_markup=main_reply_keyboard())
-        return
-    
     if context.user_data.get("awaiting_visit_home_info", False):
         text_lines = text.split("\n")
         print(f"اطلاعات ویزیت حضوری دریافت‌شده: {text_lines}")
@@ -578,6 +562,10 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # اجرای ربات
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
+    
+    # حذف وب‌هوک قبل از شروع polling
+    app.bot.delete_webhook()
+    print("وب‌هوک با موفقیت حذف شد")
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", back_to_menu))
