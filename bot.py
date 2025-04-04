@@ -158,8 +158,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "care_flowers": "گل‌ها"
         }
         context.user_data["care_category"] = category_map[choice]
-        await query.edit_message_text(
-            f"درباره {context.user_data['care_category']} بگو، چه کمکی می‌خوای؟ 🌿",
+        # استفاده از send_message به جای edit_message_text
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=f"درباره {context.user_data['care_category']} بگو، چه کمکی می‌خوای؟ 🌿",
             reply_markup=main_reply_keyboard()
         )
         context.user_data["section"] = "care"
