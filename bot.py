@@ -4,7 +4,7 @@ import google.generativeai as genai
 import requests
 import json
 import os
-import asyncio  # اضافه کردن asyncio
+import asyncio
 
 # آیدی عددی تلگرام ادمین‌ها
 ADMIN_IDS = ["1478363268", "6325733331"]
@@ -167,7 +167,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["section"] = "care"
         context.user_data["first_message"] = True
         context.user_data["conversation"] = []
-        context.user_data["has_photo"] | False
+        context.user_data["has_photo"] = False
     elif choice == "education":
         await query.edit_message_text("یه موضوع آموزشی انتخاب کنید تا باهم یاد بگیریم:", reply_markup=education_menu())
     elif choice.startswith("edu_"):
@@ -662,12 +662,10 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # اجرای ربات به صورت ناهم‌زمان
 async def main():
+    # ساخت اپلیکیشن
     app = Application.builder().token(BOT_TOKEN).build()
-    
-    # حذف وب‌هوک به صورت ناهم‌زمان
-    await app.bot.delete_webhook()
-    print("وب‌هوک با موفقیت حذف شد")
-    
+
+    # اضافه کردن هندلرها
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", back_to_menu))
     app.add_handler(CallbackQueryHandler(button_handler))
@@ -676,7 +674,8 @@ async def main():
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
-    
+
+    # مدیریت خطاها
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"یه خطا پیش اومد: {context.error}")
         if update and hasattr(update, "message") and update.message:
@@ -684,8 +683,32 @@ async def main():
         elif update and hasattr(update, "callback_query") and update.callback_query:
             await update.callback_query.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
     app.add_error_handler(error_handler)
-    
-    await app.run_polling()
+
+    # حذف وب‌هوک (در صورت وجود)
+    print("در حال حذف وب‌هوک...")
+    await app.bot.delete_webhook(drop_pending_updates=True)
+    print("وب‌هوک با موفقیت حذف شد")
+
+    # راه‌اندازی اپلیکیشن
+    print("در حال راه‌اندازی ربات...")
+    await app.initialize()
+    await app.start()
+    print("ربات با موفقیت راه‌اندازی شد")
+
+    # اجرای polling
+    try:
+        await app.run_polling(allowed_updates=Update.ALL_TYPES)
+    except Exception as e:
+        print(f"خطا در polling: {e}")
+    finally:
+        # متوقف کردن و بستن اپلیکیشن
+        print("در حال متوقف کردن ربات...")
+        await app.stop()
+        await app.shutdown()
+        print("ربات با موفقیت متوقف شد")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"خطا در اجرای برنامه: {e}")
