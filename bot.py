@@ -536,7 +536,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     contact = update.message.contact
-    save_user(user_id, contact
+    save_user(user_id, contact)  # پرانتز بسته شد!
     await update.message.reply_text("ممنون! حالا جزو خانواده ما شدید 🌱 یه گزینه انتخاب کنید:", reply_markup=main_reply_keyboard())
 
 # اجرای ربات
