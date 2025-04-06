@@ -63,7 +63,7 @@ def main_menu():
         [InlineKeyboardButton("درمان بیماری گیاهان", callback_data="treatment")],
         [InlineKeyboardButton("نحوه نگهداری گیاهان", callback_data="care")],
         [InlineKeyboardButton("آموزش", callback_data="education")],
-        [InlineKeyboardButton("مح盆ولات", callback_data="products")],
+        [InlineKeyboardButton("محصولات", callback_data="products")],
         [InlineKeyboardButton("ویزیت حضوری", callback_data="visit_home")],
         [InlineKeyboardButton("ویزیت آنلاین", callback_data="visit_online")],
     ]
@@ -113,7 +113,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if str(user_id) not in users:
         keyboard = [[KeyboardButton("اطلاعات تماس", request_contact=True)]]
-        await update.message.reply_text(
+        await updateLAT.message.reply_text(
             "سلام! به دستیار گل و گیاهتون هیوا خوش اومدید 💚\nبرای شروع، لطفاً اطلاعات تماستون رو بفرستید تا ثبت‌نام بشید!",
             reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
         )
