@@ -5,6 +5,14 @@ import requests
 import json
 import os
 import asyncio
+import logging  # اضافه کردن logging برای دیباگ
+
+# تنظیم لاگینگ
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 # آیدی عددی تلگرام ادمین‌ها
 ADMIN_IDS = ["1478363268", "6325733331"]
@@ -40,7 +48,7 @@ def save_user(user_id, contact=None):
     
     with open(USERS_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=4)
-    print(f"کاربر {user_id} ذخیره شد")
+    logger.info(f"کاربر {user_id} ذخیره شد")
 
 # تابع برای گرفتن لیست کاربرها
 def get_users():
@@ -137,7 +145,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     choice = query.data
-    print(f"دکمه زده شده: {choice}")
+    logger.info(f"دکمه زده شده: {choice}")
     
     if choice == "treatment":
         await query.edit_message_text(
@@ -307,7 +315,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
     section = context.user_data.get("section", None)
     text = update.message.text
-    print(f"متن دریافت‌شده: {text}")
+    logger.info(f"متن دریافت‌شده: {text}")
     
     # پیام ادمین به آخرین کاربر
     if str(user_id) in ADMIN_IDS:
@@ -317,7 +325,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=last_user_id,
                 text=update.message.text
             )
-            print(f"پیام ادمین به کاربر {last_user_id} ارسال شد")
+            logger.info(f"پیام ادمین به کاربر {last_user_id} ارسال شد")
         else:
             await update.message.reply_text("هنوز کسی پیامی نداده که جواب بدم!")
         return
@@ -391,7 +399,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # بقیه منطق برای آدرس و ویزیت‌ها
     if section == "visit_home" and context.user_data.get("awaiting_visit_home_info", False):
         text_lines = text.split("\n")
-        print(f"اطلاعات ویزیت حضوری دریافت‌شده: {text_lines}")
+        logger.info(f"اطلاعات ویزیت حضوری دریافت‌شده: {text_lines}")
         if len(text_lines) >= 3:
             context.user_data["visit_home_info"] = {
                 "plants": text_lines[0],
@@ -407,7 +415,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if section == "visit_online" and context.user_data.get("awaiting_visit_online_info", False):
         text_lines = text.split("\n")
-        print(f"اطلاعات ویزیت آنلاین دریافت‌شده: {text_lines}")
+        logger.info(f"اطلاعات ویزیت آنلاین دریافت‌شده: {text_lines}")
         if len(text_lines) >= 2:
             context.user_data["visit_online_info"] = {
                 "plants": text_lines[0],
@@ -425,9 +433,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                              f"نام: {visit_info['name']}\n"
                              f"شماره: {visit_info['phone']}"
                     )
-                    print(f"اطلاعات ویزیت آنلاین به ادمین {admin_id} ارسال شد")
+                    logger.info(f"اطلاعات ویزیت آنلاین به ادمین {admin_id} ارسال شد")
                 except Exception as e:
-                    print(f"خطا در ارسال اطلاعات ویزیت آنلاین به ادمین {admin_id}: {e}")
+                    logger.error(f"خطا در ارسال اطلاعات ویزیت آنلاین به ادمین {admin_id}: {e}")
             await update.message.reply_text(
                 "ممنون! حالا نحوه پرداخت رو انتخاب کنید:",
                 reply_markup=InlineKeyboardMarkup([
@@ -441,15 +449,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id
-    print(f"آیدی کاربر ذخیره شد: {user_id}")
+    logger.info(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if section in ["treatment", "care"]:
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
-                print(f"متن به ادمین {admin_id} فوروارد شد (بخش: {section})")
+                logger.info(f"متن به ادمین {admin_id} فوروارد شد (بخش: {section})")
             except Exception as e:
-                print(f"خطا در فوروارد متن به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد متن به ادمین {admin_id}: {e}")
         
         if context.user_data.get("first_message", True):
             loading_msg = await update.message.reply_text("یه لحظه صبر کنید، دارم فکر می‌کنم... 🌱")
@@ -504,12 +512,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     section = context.user_data.get("section", None)
     if str(user_id) in ADMIN_IDS:
-        print(f"عکس از ادمین ({user_id}) بود، نادیده گرفته شد")
+        logger.info(f"عکس از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id
-    print(f"آیدی کاربر ذخیره شد: {user_id}")
+    logger.info(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("awaiting_receipt", False) and section in ["visit_home", "visit_online"]:
         pending_type = context.user_data.get("pending_type")
@@ -520,9 +528,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=admin_id,
                     text=f"رسید پرداخت از کاربر با آیدی: {user_id} (نوع: {pending_type})"
                 )
-                print(f"رسید پرداخت به ادمین {admin_id} فوروارد شد (نوع: {pending_type})")
+                logger.info(f"رسید پرداخت به ادمین {admin_id} فوروارد شد (نوع: {pending_type})")
             except Exception as e:
-                print(f"خطا در فوروارد رسید به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد رسید به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "رسیدتون رو گرفتم! بعد از تأیید ادمین باهاتون تماس می‌گیرن. مرسی که انتخابمون کردید 💚",
             reply_markup=main_reply_keyboard()
@@ -534,9 +542,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
-                print(f"عکس درمان/نگهداری به ادمین {admin_id} فوروارد شد (بخش: {section})")
+                logger.info(f"عکس درمان/نگهداری به ادمین {admin_id} فوروارد شد (بخش: {section})")
             except Exception as e:
-                print(f"خطا در فوروارد عکس به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد عکس به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "عکستون رو برای متخصصمون فرستادم! به‌زودی جوابتون رو می‌دم 🌱",
             reply_markup=main_reply_keyboard()
@@ -545,9 +553,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
-                print(f"عکس نامشخص به ادمین {admin_id} فوروارد شد")
+                logger.info(f"عکس نامشخص به ادمین {admin_id} فوروارد شد")
             except Exception as e:
-                print(f"خطا در فوروارد عکس به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد عکس به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "عکستون رو گرفتم، ولی نمی‌دونم باهاش چیکار کنم! لطفاً یه توضیح بدید 🌱",
             reply_markup=main_reply_keyboard()
@@ -558,12 +566,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     section = context.user_data.get("section", None)
     if str(user_id) in ADMIN_IDS:
-        print(f"فایل از ادمین ({user_id}) بود، نادیده گرفته شد")
+        logger.info(f"فایل از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id
-    print(f"آیدی کاربر ذخیره شد: {user_id}")
+    logger.info(f"آیدی کاربر ذخیره شد: {user_id}")
     
     file = update.message.document
     file_type = file.mime_type
@@ -577,9 +585,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=admin_id,
                     text=f"رسید پرداخت (فایل) از کاربر با آیدی: {user_id} (نوع: {pending_type})"
                 )
-                print(f"رسید پرداخت (فایل) به ادمین {admin_id} فوروارد شد (نوع: {pending_type})")
+                logger.info(f"رسید پرداخت (فایل) به ادمین {admin_id} فوروارد شد (نوع: {pending_type})")
             except Exception as e:
-                print(f"خطا در فوروارد فایل به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد فایل به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "فایل رسیدتون رو گرفتم! بعد از تأیید ادمین باهاتون تماس می‌گیرن. مرسی که باهامون هستید 💚",
             reply_markup=main_reply_keyboard()
@@ -591,9 +599,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
-                print(f"فایل عکس درمان/نگهداری به ادمین {admin_id} فوروارد شد (بخش: {section})")
+                logger.info(f"فایل عکس درمان/نگهداری به ادمین {admin_id} فوروارد شد (بخش: {section})")
             except Exception as e:
-                print(f"خطا در فوروارد فایل عکس به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد فایل عکس به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "عکس رو به‌صورت فایل فرستادید! برای متخصصمون فرستادم، به‌زودی جوابتون رو می‌دم 🌱",
             reply_markup=main_reply_keyboard()
@@ -602,9 +610,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
-                print(f"فایل نامشخص به ادمین {admin_id} فوروارد شد")
+                logger.info(f"فایل نامشخص به ادمین {admin_id} فوروارد شد")
             except Exception as e:
-                print(f"خطا در فوروارد فایل به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد فایل به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "فایلتون رو گرفتم، ولی نمی‌دونم چیه! لطفاً یه توضیح بدید که بفهمم چیکارش کنم 🌱",
             reply_markup=main_reply_keyboard()
@@ -614,12 +622,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if str(user_id) in ADMIN_IDS:
-        print(f"لوکیشن از ادمین ({user_id}) بود، نادیده گرفته شد")
+        logger.info(f"لوکیشن از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id
-    print(f"آیدی کاربر ذخیره شد: {user_id}")
+    logger.info(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("section") == "visit_home" and "visit_home_info" in context.user_data:
         context.user_data["visit_home_info"]["location"] = update.message.location
@@ -646,9 +654,9 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     latitude=update.message.location.latitude,
                     longitude=update.message.location.longitude
                 )
-                print(f"اطلاعات و لوکیشن با موفقیت به ادمین {admin_id} ارسال شد")
+                logger.info(f"اطلاعات و لوکیشن با موفقیت به ادمین {admin_id} ارسال شد")
             except Exception as e:
-                print(f"خطا در ارسال اطلاعات و لوکیشن به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در ارسال اطلاعات و لوکیشن به ادمین {admin_id}: {e}")
 
 # مدیریت تماس
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -677,7 +685,7 @@ async def main():
 
     # مدیریت خطاها
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        print(f"یه خطا پیش اومد: {context.error}")
+        logger.error(f"یه خطا پیش اومد: {context.error}")
         if update and hasattr(update, "message") and update.message:
             await update.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
         elif update and hasattr(update, "callback_query") and update.callback_query:
@@ -685,30 +693,24 @@ async def main():
     app.add_error_handler(error_handler)
 
     # حذف وب‌هوک (در صورت وجود)
-    print("در حال حذف وب‌هوک...")
+    logger.info("در حال حذف وب‌هوک...")
     await app.bot.delete_webhook(drop_pending_updates=True)
-    print("وب‌هوک با موفقیت حذف شد")
+    logger.info("وب‌هوک با موفقیت حذف شد")
 
     # راه‌اندازی اپلیکیشن
-    print("در حال راه‌اندازی ربات...")
+    logger.info("در حال راه‌اندازی ربات...")
     await app.initialize()
     await app.start()
-    print("ربات با موفقیت راه‌اندازی شد")
+    logger.info("ربات با موفقیت راه‌اندازی شد")
 
-    # اجرای polling
-    try:
-        await app.run_polling(allowed_updates=Update.ALL_TYPES)
-    except Exception as e:
-        print(f"خطا در polling: {e}")
-    finally:
-        # متوقف کردن و بستن اپلیکیشن
-        print("در حال متوقف کردن ربات...")
-        await app.stop()
-        await app.shutdown()
-        print("ربات با موفقیت متوقف شد")
+    # اجرای polling به صورت مداوم
+    logger.info("شروع polling برای دریافت آپدیت‌ها...")
+    await app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    # این خط به صورت عادی نباید اجرا بشه، چون polling یه حلقه بی‌نهایته
+    logger.info("polling متوقف شد")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except Exception as e:
-        print(f"خطا در اجرای برنامه: {e}")
+        logger.error(f"خطا در اجرای برنامه: {e}")
