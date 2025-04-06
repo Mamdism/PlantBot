@@ -4,6 +4,7 @@ import google.generativeai as genai
 import requests
 import json
 import os
+import asyncio  # اضافه کردن asyncio
 
 # آیدی عددی تلگرام ادمین‌ها
 ADMIN_IDS = ["1478363268", "6325733331"]
@@ -63,7 +64,7 @@ def main_menu():
         [InlineKeyboardButton("درمان بیماری گیاهان", callback_data="treatment")],
         [InlineKeyboardButton("نحوه نگهداری گیاهان", callback_data="care")],
         [InlineKeyboardButton("آموزش", callback_data="education")],
-        [InlineKeyboardButton("مح盆ولات", callback_data="products")],
+        [InlineKeyboardButton("محصولات", callback_data="products")],
         [InlineKeyboardButton("ویزیت حضوری", callback_data="visit_home")],
         [InlineKeyboardButton("ویزیت آنلاین", callback_data="visit_online")],
     ]
@@ -166,7 +167,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["section"] = "care"
         context.user_data["first_message"] = True
         context.user_data["conversation"] = []
-        context.user_data["has_photo"] = False
+        context.user_data["has_photo"] | False
     elif choice == "education":
         await query.edit_message_text("یه موضوع آموزشی انتخاب کنید تا باهم یاد بگیریم:", reply_markup=education_menu())
     elif choice.startswith("edu_"):
@@ -659,11 +660,12 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_reply_keyboard()
     )
 
-# اجرای ربات
-def main():
+# اجرای ربات به صورت ناهم‌زمان
+async def main():
     app = Application.builder().token(BOT_TOKEN).build()
     
-    app.bot.delete_webhook()
+    # حذف وب‌هوک به صورت ناهم‌زمان
+    await app.bot.delete_webhook()
     print("وب‌هوک با موفقیت حذف شد")
     
     app.add_handler(CommandHandler("start", start))
@@ -683,7 +685,7 @@ def main():
             await update.callback_query.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
     app.add_error_handler(error_handler)
     
-    app.run_polling()
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
