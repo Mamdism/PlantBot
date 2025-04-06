@@ -7,6 +7,7 @@ import requests
 import json
 import os
 from aiohttp import web
+import telegram.error
 
 # تنظیم لاگ برای عیب‌یابی
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 # آیدی عددی تلگرام ادمین‌ها
 ADMIN_IDS = ["1478363268", "6325733331"]
 
-# توکن و کلید API از متغیرهای محیطی (برای Railway)
+# توکن و کلید API از متغیرهای محیطی
 BOT_TOKEN = os.getenv("BOT_TOKEN", "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4")
 
@@ -67,7 +68,7 @@ def main_menu():
         [InlineKeyboardButton("درمان بیماری گیاهان", callback_data="treatment")],
         [InlineKeyboardButton("نحوه نگهداری گیاهان", callback_data="care")],
         [InlineKeyboardButton("آموزش", callback_data="education")],
-        [InlineKeyboardButton("محصولات", callback_data="products")],  # اصلاح typo از "مح盆ولات" به "محصولات"
+        [InlineKeyboardButton("محصولات", callback_data="products")],
         [InlineKeyboardButton("ویزیت حضوری", callback_data="visit_home")],
         [InlineKeyboardButton("ویزیت آنلاین", callback_data="visit_online")],
     ])
@@ -169,11 +170,39 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("یه موضوع آموزشی انتخاب کنید تا باهم یاد بگیریم:", reply_markup=education_menu())
     elif choice.startswith("edu_"):
         education_content = {
-            "edu_1": "**مبانی اولیه گیاه‌شناسی** 🌿\nگیاهان با نور خورشید غذا درست می‌کنن و بخش‌های مختلفی مثل ریشه، ساقه و برگ دارن.",
-            "edu_2": "**روش‌های آبیاری و تغذیه گیاهان** 💧\nهر گیاهی نیاز آبی خاص خودشو داره؛ مثلاً کاکتوس‌ها هر دو هفته یه بار آب می‌خوان."
+            "edu_1": """**مبانی اولیه گیاه‌شناسی** 🌿  
+گیاهان با نور خورشید غذا درست می‌کنن و بخش‌های مختلفی مثل ریشه، ساقه و برگ دارن. ریشه آب و مواد غذایی می‌گیره، ساقه منتقل می‌کنه و برگ‌ها انرژی تولید می‌کنن. مثلاً گیاهان آپارتمانی مثل *Spathiphyllum* به رطوبت و نور غیرمستقیم نیاز دارن. سوالی دارید؟ بپرسید! 🌱""",
+            "edu_2": """**روش‌های آبیاری و تغذیه گیاهان** 💧  
+هر گیاهی نیاز آبی خاص خودشو داره؛ مثلاً کاکتوس‌ها هر دو هفته یه بار آب می‌خوان، ولی *Calathea* خاکش باید همیشه مرطوب باشه. کود هم برای رشدشون مهمه، نیتروژن برای برگ‌ها و فسفر برای ریشه‌ها. سوالی هست؟ بگید! 🌱"""
+        }
+        photo_urls = {
+            "edu_1": "https://www.mediafire.com/view/hbd3ibb19ggw9gz/image.png/file",
+            "edu_2": "https://www.mediafire.com/view/8v893e6yvaj5aif/image%25282%2529.png/file"
         }
         content = education_content.get(choice, "موضوع پیدا نشد!")
-        await context.bot.send_message(chat_id=query.message.chat_id, text=content, reply_markup=blog_menu())
+        photo_url = photo_urls.get(choice, None)
+        
+        if photo_url:
+            await context.bot.send_photo(
+                chat_id=query.message.chat_id,
+                photo=photo_url,
+                caption=content,
+                reply_markup=blog_menu()
+            )
+        else:
+            await context.bot.send_message(chat_id=query.message.chat_id, text=content, reply_markup=blog_menu())
+    elif choice == "download_pdf":
+        pdf_url = "https://raw.githubusercontent.com/Mamdism/PlantBot/main/جنگل_خودتو_بساز_هیوا.pdf"
+        response = requests.get(pdf_url)
+        if response.status_code == 200:
+            await context.bot.send_document(
+                chat_id=query.message.chat_id,
+                document=response.content,
+                filename="جنگل_خودتو_بساز_هیوا.pdf",
+                caption="اینم PDF جنگل خودتو بساز هیوا! امیدوارم به کارتون بیاد 🌿"
+            )
+        else:
+            await context.bot.send_message(chat_id=query.message.chat_id, text="مشکلی پیش اومد و نمی‌تونم PDF رو بفرستم!")
     elif choice == "products":
         await query.edit_message_text(
             "محصولاتمون رو اینجا ببینید! 🥰",
@@ -268,9 +297,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["awaiting_visit_home_info"] = False
             await update.message.reply_text(
                 "ممنون! حالا نحوه پرداخت رو انتخاب کنید:",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
-                ])
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]])
             )
         else:
             await update.message.reply_text("لطفاً تعداد گیاهان، اسم، شماره و آدرس رو توی حداقل ۳ خط بفرستید!")
@@ -285,9 +312,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["awaiting_visit_online_info"] = False
             await update.message.reply_text(
                 "ممنون! حالا نحوه پرداخت رو انتخاب کنید:",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_online_card")]
-                ])
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_online_card")]])
             )
         else:
             await update.message.reply_text("لطفاً تعداد گیاهان، اسم و شماره رو توی حداقل ۲ خط بفرستید!")
@@ -331,6 +356,33 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for admin_id in ADMIN_IDS:
             await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
         await update.message.reply_text("عکستون رو برای متخصصمون فرستادم! به‌زودی جواب می‌دم 🌱", reply_markup=main_reply_keyboard())
+
+# مدیریت فایل‌ها
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    section = context.user_data.get("section", None)
+    if str(user_id) in ADMIN_IDS:
+        return
+    
+    context.user_data["user_id"] = user_id
+    context.bot_data["last_user_id"] = user_id
+    
+    file = update.message.document
+    file_type = file.mime_type
+    
+    if context.user_data.get("awaiting_receipt", False) and section in ["visit_home", "visit_online"]:
+        pending_type = context.user_data.get("pending_type")
+        for admin_id in ADMIN_IDS:
+            await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
+            await context.bot.send_message(chat_id=admin_id, text=f"رسید پرداخت (فایل) از کاربر {user_id} (نوع: {pending_type})")
+        await update.message.reply_text("فایل رسیدتون رو گرفتم! بعد از تأیید ادمین باهاتون تماس می‌گیرن. 💚", reply_markup=main_reply_keyboard())
+        context.user_data["awaiting_receipt"] = False
+        context.user_data.pop("pending_type", None)
+    elif section in ["treatment", "care"] and file_type.startswith("image/"):
+        context.user_data["has_photo"] = True
+        for admin_id in ADMIN_IDS:
+            await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
+        await update.message.reply_text("عکس رو به‌صورت فایل فرستادید! برای متخصصمون فرستادم، به‌زودی جواب می‌دم 🌱", reply_markup=main_reply_keyboard())
 
 # مدیریت لوکیشن
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -384,22 +436,33 @@ app.add_handler(CommandHandler("menu", back_to_menu))
 app.add_handler(CallbackQueryHandler(button_handler))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
 
 async def main():
     await app.initialize()
     await app.start()
+    
+    # حذف وب‌هوک قبلی
     await app.bot.delete_webhook(drop_pending_updates=True)
     logger.info("وب‌هوک قبلی حذف شد")
     
-    # تنظیم پورت و URL برای Railway
-    port = int(os.getenv("PORT", 8080))  # Railway پورت رو از متغیر PORT می‌گیره
-    webhook_url = f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN')}/webhook"  # دامنه عمومی Railway
-    await app.bot.set_webhook(url=webhook_url)
-    logger.info(f"وب‌هوک تنظیم شد: {webhook_url}")
+    # تنظیم پورت و دامنه برای Railway
+    port = int(os.getenv("PORT", 8080))
+    domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "plantbot.up.railway.app")  # دامنه پیش‌فرض
+    webhook_url = f"https://{domain}/webhook"
+    logger.info(f"تلاش برای تنظیم وب‌هوک با URL: {webhook_url}")
     
-    # تنظیم سرور aiohttp
+    # تنظیم وب‌هوک با مدیریت خطا
+    try:
+        await app.bot.set_webhook(url=webhook_url)
+        logger.info(f"وب‌هوک با موفقیت تنظیم شد: {webhook_url}")
+    except telegram.error.TelegramError as e:
+        logger.error(f"خطا در تنظیم وب‌هوک: {e}")
+        return
+    
+    # راه‌اندازی سرور
     web_app = web.Application()
     web_app.router.add_post('/webhook', webhook_handler)
     runner = web.AppRunner(web_app)
@@ -408,7 +471,7 @@ async def main():
     await site.start()
     logger.info(f"سرور روی پورت {port} اجرا شد")
     
-    # حلقه بی‌نهایت برای نگه داشتن برنامه
+    # حلقه برای نگه داشتن برنامه
     while True:
         await asyncio.sleep(3600)
 
