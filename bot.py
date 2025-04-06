@@ -2,18 +2,18 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import google.generativeai as genai
-import requests
 import json
 import os
+from aiohttp import web
 
 # آیدی عددی تلگرام ادمین‌ها
 ADMIN_IDS = ["1478363268", "6325733331"]
 
 # توکن ربات
-BOT_TOKEN = "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4"
+BOT_TOKEN = os.getenv("BOT_TOKEN", "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4")
 
 # کلید API Gemini
-GEMINI_API_KEY = "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4")
 
 # مشخصات حساب برای کارت به کارت
 CARD_INFO = "محمد باقری\n6219-8619-6996-9723"
@@ -476,7 +476,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             - اموجی‌های مرتبط بزن: مثل 🌱، 💧، ☀️، 🐞 برای جذاب‌تر شدن جواب.
             - کوتاه و مفید باش: جوابات طولانی نشه، سریع برو سر اصل مطلب.
             - اگه عکس یا فایل ندادن بگو: "اگه می‌تونید یه عکس بفرستید بهتره!"، اگه دادن دیگه نپرس.
-            - چت رو ادامه بده: مثل یه مکالمه طبیعی جواب بده، نه فقط یه پاسخ خشک.
+            - چت رو ادامه بده: مثل یه مکالمه طبیعی جواب bismuth بده، نه فقط یه پاسخ خشک.
             - بخش درمان: درباره مشکل گیاه سوالای ساده بپرس.
             - بخش نگهداری: بپرس اسم گیاه چیه و شرایط نگهداریش چطوره.
 
@@ -660,31 +660,59 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_reply_keyboard()
     )
 
+# تابع Webhook Handler
+async def webhook_handler(request):
+    update = Update.de_json(await request.json(), app.bot)
+    await app.process_update(update)
+    return web.Response(text="OK")
+
 # اجرای ربات
+app = Application.builder().token(BOT_TOKEN).build()
+
+# اضافه کردن هندلرها
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("menu", back_to_menu))
+app.add_handler(CallbackQueryHandler(button_handler))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+app.add_handler(MessageHandler(filters.LOCATION, handle_location))
+app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"یه خطا پیش اومد: {context.error}")
+    if update and hasattr(update, "message") and update.message:
+        await update.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
+    elif update and hasattr(update, "callback_query") and update.callback_query:
+        await update.callback_query.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
+app.add_error_handler(error_handler)
+
+# تنظیم وب‌سرور
+web_app = web.Application()
+web_app.router.add_post('/webhook', webhook_handler)
+
 async def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    await app.initialize()
+    await app.start()
+    await app.bot.delete_webhook(drop_pending_updates=True)
+    print("وب‌هوک قبلی حذف شد")
     
-    await app.bot.delete_webhook()  # حذف وب‌هوک به صورت ناهمگام
-    print("وب‌هوک با موفقیت حذف شد")
+    # تنظیم Webhook
+    port = int(os.getenv("PORT", 8443))
+    webhook_url = f"https://{os.getenv('HEROKU_APP_NAME')}.herokuapp.com/webhook"
+    await app.bot.set_webhook(url=webhook_url)
+    print(f"وب‌هوک تنظیم شد: {webhook_url}")
     
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("menu", back_to_menu))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    app.add_handler(MessageHandler(filters.LOCATION, handle_location))
-    app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+    # اجرای وب‌سرور
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f"سرور روی پورت {port} اجرا شد")
     
-    async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        print(f"یه خطا پیش اومد: {context.error}")
-        if update and hasattr(update, "message") and update.message:
-            await update.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
-        elif update and hasattr(update, "callback_query") and update.callback_query:
-            await update.callback_query.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
-    app.add_error_handler(error_handler)
-    
-    await app.run_polling()
+    # نگه داشتن برنامه در حال اجرا
+    while True:
+        await asyncio.sleep(3600)  # هر ساعت یه بار صبر می‌کنه
 
 if __name__ == "__main__":
-    asyncio.run(main())  # اجرای تابع اصلی با asyncio
+    asyncio.run(main())
