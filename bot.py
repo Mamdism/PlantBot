@@ -1,3 +1,4 @@
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import google.generativeai as genai
@@ -113,7 +114,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if str(user_id) not in users:
         keyboard = [[KeyboardButton("اطلاعات تماس", request_contact=True)]]
-        await updateLAT.message.reply_text(
+        await update.message.reply_text(
             "سلام! به دستیار گل و گیاهتون هیوا خوش اومدید 💚\nبرای شروع، لطفاً اطلاعات تماستون رو بفرستید تا ثبت‌نام بشید!",
             reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
         )
@@ -660,10 +661,10 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # اجرای ربات
-def main():
+async def main():
     app = Application.builder().token(BOT_TOKEN).build()
     
-    app.bot.delete_webhook()
+    await app.bot.delete_webhook()  # حذف وب‌هوک به صورت ناهمگام
     print("وب‌هوک با موفقیت حذف شد")
     
     app.add_handler(CommandHandler("start", start))
@@ -683,7 +684,7 @@ def main():
             await update.callback_query.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
     app.add_error_handler(error_handler)
     
-    app.run_polling()
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())  # اجرای تابع اصلی با asyncio
