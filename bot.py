@@ -26,7 +26,7 @@ model = genai.GenerativeModel('gemini-1.5-pro')
 
 # پرامپت جدید برای Gemini
 GEMINI_PROMPT = """
-شما یک دستیار هوشمند متخصص در زمینه نگهداری و درمان گیاهان هستید. وظیفه شما ارائه پاسخ‌های دقیق، جامع و کاربردی به کاربرانی است که در مورد گیاهان خود سوال دارند. برای ارائه بهترین پاسخ، شما باید از کاربر اطلاعات زیر را به طور دقیق و کامل جویا شوید و سپس بر اساس این اطلاعات، راهنمایی‌های لازم را بصورت خلاصه و دوستانه ارائه دهید:
+شما یک دستیار هوشمند متخصص در زمینه نگهداری و درمان گیاهان هستید. وظیفه شما ارائه پاسخ‌های دقیق، جامع و کاربردی به کاربرانی است که در مورد گیاهان خود سوال دارند. برای ارائه بهترین پاسخ، شما باید از کاربر اطلاعات زیر را به طور دقیق و کامل جویا شوید و سپس بر اساس این اطلاعات، راهنمایی‌های لازم را ارائه دهید:
 
 1. شناسایی گیاه:
 - نام دقیق گیاه: (نام علمی ارجحیت دارد، در صورت عدم اطلاع نام رایج و ترجیحاً درخواست عکس در صورت امکان)
@@ -57,10 +57,24 @@ GEMINI_PROMPT = """
 - از لحنی دوستانه، واضح و قابل فهم استفاده کنید.
 - از ارائه اطلاعات متناقض یا غیرعلمی خودداری کنید.
 
-هدف نهایی شما این است که با جمع‌آوری اطلاعات کامل و ارائه راهنمایی‌های دقیق، به کاربران کمک کنید تا گیاهان سالم و شادابی داشته باشند.
-
-اگر کاربر عکسی فرستاده، فرض کن که بخشی از اطلاعات (مثل ظاهر گیاه یا علائم مشکل) رو از عکس متوجه شدی و دیگه ازش عکس نخواه. مکالمه رو ادامه بده، اطلاعات قبلی رو به خاطر بیار و تا آخر بهش کمک کن گیاهش رو درمان کنه.
+**مهم:**
+- سوالاتت رو کوتاه و خلاصه بپرس، یه پیام طولانی نفرست که کاربر خسته شه.
+- اگه کاربر عکسی فرستاده، فرض کن که بخشی از اطلاعات (مثل ظاهر گیاه یا علائم) رو از عکس متوجه شدی و دیگه ازش عکس نخواه.
+- مکالمه رو ادامه بده، اطلاعات قبلی رو به خاطر بیار و تا آخر به کاربر کمک کن گیاهش رو درمان کنه.
+- جوابات رو هم کوتاه‌تر و مفیدتر کن، توضیحات اضافی نده مگر اینکه کاربر بخواد.
 """
+
+# سوالات مرحله‌به‌مرحله برای بخش "درمان"
+TREATMENT_QUESTIONS = [
+    "اسم گیاهت چیه؟ (اگه نمی‌دونی، یه عکس بفرست یا توضیح بده چه شکلیه)",
+    "کی آخرین بار بهش آب دادی؟",
+    "خاکش چیه؟ (مثلاً خاک باغچه، مخلوط پیت‌ماس یا چیز دیگه)",
+    "نورش چطوره؟ (مستقیم، غیرمستقیم یا سایه)",
+    "چه مشکلی داره؟ (مثلاً زرد شده، پژمرده یا برگاش ریخته)",
+    "چند وقته این مشکل رو دیدی؟",
+    "اخیراً چیزی توی نگهداریش عوض کردی؟ (مثلاً جاش یا آبیاری)",
+    "تا حالا بهش کود دادی؟ اگه آره، کی و چه کودی؟"
+]
 
 # تابع برای ذخیره کاربرها
 def save_user(user_id, contact=None):
@@ -178,12 +192,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if choice == "treatment":
         await query.edit_message_text(
-            "لطفاً درباره گیاهتون و مشکلی که داره بگید! اگه عکسی دارید بفرستید، خیلی کمک می‌کنه 🌿",
+            "بیا با هم گیاهت رو درمان کنیم! 🌿\n" + TREATMENT_QUESTIONS[0],
             reply_markup=main_reply_keyboard()
         )
         context.user_data["section"] = "treatment"
         context.user_data["conversation"] = []
         context.user_data["has_photo"] = False
+        context.user_data["question_index"] = 0  # شروع از سوال اول
     elif choice == "care":
         await query.edit_message_text("چه نوع گیاهی دارید؟ 🌱 یه دسته‌بندی انتخاب کنید:", reply_markup=care_category_menu())
     elif choice.startswith("care_"):
@@ -295,12 +310,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if text == "درمان بیماری گیاهان":
         await update.message.reply_text(
-            "لطفاً درباره گیاهتون و مشکلی که داره بگید! اگه عکسی دارید بفرستید، خیلی کمک می‌کنه 🌿",
+            "بیا با هم گیاهت رو درمان کنیم! 🌿\n" + TREATMENT_QUESTIONS[0],
             reply_markup=main_reply_keyboard()
         )
         context.user_data["section"] = "treatment"
         context.user_data["conversation"] = []
         context.user_data["has_photo"] = False
+        context.user_data["question_index"] = 0
     elif text == "نحوه نگهداری گیاهان":
         await update.message.reply_text("چه نوع گیاهی دارید؟ 🌱 یه دسته‌بندی انتخاب کنید:", reply_markup=care_category_menu())
     elif text == "آموزش":
@@ -364,9 +380,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conversation = context.user_data.get("conversation", [])
         conversation.append({"role": "user", "content": text})
         
-        # اضافه کردن اطلاعات عکس اگه قبلاً فرستاده شده
         if context.user_data.get("has_photo", False):
             conversation.append({"role": "system", "content": "کاربر قبلاً یه عکس از گیاهش فرستاده، پس ظاهر گیاه و علائم رو از اون در نظر بگیر و دیگه عکس نخواه."})
+        
+        loading_msg = await update.message.reply_text("در حال فکر کردن...")
         
         prompt = GEMINI_PROMPT + "\n\nمکالمه تا الان:\n" + "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation])
         response = model.generate_content(prompt)
@@ -375,7 +392,19 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conversation.append({"role": "assistant", "content": answer_fa})
         context.user_data["conversation"] = conversation
         
-        await update.message.reply_text(answer_fa, reply_markup=main_reply_keyboard())
+        await context.bot.delete_message(chat_id=user_id, message_id=loading_msg.message_id)
+        
+        # مدیریت سوالات مرحله‌به‌مرحله برای "درمان"
+        if section == "treatment":
+            question_index = context.user_data.get("question_index", 0)
+            if question_index < len(TREATMENT_QUESTIONS) - 1:
+                context.user_data["question_index"] = question_index + 1
+                next_question = TREATMENT_QUESTIONS[question_index + 1]
+                await update.message.reply_text(f"{answer_fa}\n\n{next_question}", reply_markup=main_reply_keyboard())
+            else:
+                await update.message.reply_text(answer_fa, reply_markup=main_reply_keyboard())
+        else:
+            await update.message.reply_text(answer_fa, reply_markup=main_reply_keyboard())
 
 # مدیریت عکس‌ها
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -406,6 +435,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conversation.append({"role": "user", "content": "من یه عکس از گیاهم فرستادم."})
         conversation.append({"role": "system", "content": "کاربر یه عکس از گیاهش فرستاده، پس ظاهر گیاه و علائم رو از اون در نظر بگیر و دیگه عکس نخواه."})
         
+        loading_msg = await update.message.reply_text("در حال فکر کردن...")
+        
         prompt = GEMINI_PROMPT + "\n\nمکالمه تا الان:\n" + "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation])
         response = model.generate_content(prompt)
         answer_fa = response.text
@@ -413,7 +444,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conversation.append({"role": "assistant", "content": answer_fa})
         context.user_data["conversation"] = conversation
         
-        await update.message.reply_text(answer_fa, reply_markup=main_reply_keyboard())
+        await context.bot.delete_message(chat_id=user_id, message_id=loading_msg.message_id)
+        
+        if section == "treatment":
+            question_index = context.user_data.get("question_index", 0)
+            if question_index < len(TREATMENT_QUESTIONS) - 1:
+                context.user_data["question_index"] = question_index + 1
+                next_question = TREATMENT_QUESTIONS[question_index + 1]
+                await update.message.reply_text(f"{answer_fa}\n\n{next_question}", reply_markup=main_reply_keyboard())
+            else:
+                await update.message.reply_text(answer_fa, reply_markup=main_reply_keyboard())
+        else:
+            await update.message.reply_text(answer_fa, reply_markup=main_reply_keyboard())
 
 # مدیریت فایل‌ها
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -445,6 +487,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conversation.append({"role": "user", "content": "من یه عکس از گیاهم فرستادم (به‌صورت فایل)."})
         conversation.append({"role": "system", "content": "کاربر یه عکس از گیاهش فرستاده، پس ظاهر گیاه و علائم رو از اون در نظر بگیر و دیگه عکس نخواه."})
         
+        loading_msg = await update.message.reply_text("در حال فکر کردن...")
+        
         prompt = GEMINI_PROMPT + "\n\nمکالمه تا الان:\n" + "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation])
         response = model.generate_content(prompt)
         answer_fa = response.text
@@ -452,7 +496,18 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conversation.append({"role": "assistant", "content": answer_fa})
         context.user_data["conversation"] = conversation
         
-        await update.message.reply_text(answer_fa, reply_markup=main_reply_keyboard())
+        await context.bot.delete_message(chat_id=user_id, message_id=loading_msg.message_id)
+        
+        if section == "treatment":
+            question_index = context.user_data.get("question_index", 0)
+            if question_index < len(TREATMENT_QUESTIONS) - 1:
+                context.user_data["question_index"] = question_index + 1
+                next_question = TREATMENT_QUESTIONS[question_index + 1]
+                await update.message.reply_text(f"{answer_fa}\n\n{next_question}", reply_markup=main_reply_keyboard())
+            else:
+                await update.message.reply_text(answer_fa, reply_markup=main_reply_keyboard())
+        else:
+            await update.message.reply_text(answer_fa, reply_markup=main_reply_keyboard())
 
 # مدیریت لوکیشن
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -481,7 +536,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     contact = update.message.contact
-    save_user(user_id, contact)
+    save_user(user_id, contact
     await update.message.reply_text("ممنون! حالا جزو خانواده ما شدید 🌱 یه گزینه انتخاب کنید:", reply_markup=main_reply_keyboard())
 
 # اجرای ربات
