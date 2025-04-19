@@ -1,3 +1,4 @@
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import google.generativeai as genai
@@ -27,9 +28,12 @@ model = genai.GenerativeModel('gemini-1.5-pro')
 # تابع برای ذخیره کاربرها
 def save_user(user_id, contact=None):
     users = {}
-    if os.path.exists(USERS_FILE):
-        with open(USERS_FILE, "r", encoding="utf-8") as f:
-            users = json.load(f)
+    try:
+        if os.path.exists(USERS_FILE):
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                users = json.load(f)
+    except Exception as e:
+        print(f"خطا در خواندن users.json: {e}")
     
     users[str(user_id)] = {
         "user_id": user_id,
@@ -37,15 +41,21 @@ def save_user(user_id, contact=None):
         "first_name": contact.first_name if contact else None
     }
     
-    with open(USERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(users, f, ensure_ascii=False, indent=4)
-    print(f"کاربر {user_id} ذخیره شد")
+    try:
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, ensure_ascii=False, indent=4)
+        print(f"کاربر {user_id} ذخیره شد")
+    except Exception as e:
+        print(f"خطا در نوشتن users.json: {e}")
 
 # تابع برای گرفتن لیست کاربرها
 def get_users():
-    if os.path.exists(USERS_FILE):
-        with open(USERS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+    try:
+        if os.path.exists(USERS_FILE):
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"خطا در خواندن users.json: {e}")
     return {}
 
 # کیبورد ثابت برای دسته‌بندی‌ها
@@ -113,11 +123,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if str(user_id) not in users:
         keyboard = [[KeyboardButton("اطلاعات تماس", request_contact=True)]]
+        print(f"ارسال کیبورد تماس برای کاربر {user_id}")
         await update.message.reply_text(
             "به دستیار گل و گیاهتون هیوا خوش اومدین💚\nلطفاً برای ثبت‌نام، اطلاعات تماس خودت رو بفرست؛ این اطلاعات فقط جهت ثبت نام شما هست:",
             reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
         )
     else:
+        print(f"ارسال کیبورد اصلی برای کاربر {user_id}")
         await update.message.reply_text(
             "به دستیار گل و گیاهتون هیوا خوش اومدین💚\nیه گزینه رو انتخاب کن:",
             reply_markup=main_reply_keyboard()
@@ -126,9 +138,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # برگشت به منوی اصلی
 async def back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
+    user_id = update.message.from_user.id
+    print(f"ارسال کیبورد اصلی برای کاربر {user_id} از /menu")
     await update.message.reply_text(
         "برگشتی به منوی اصلی 🌱 یه گزینه انتخاب کن:",
         reply_markup=main_reply_keyboard()
+    )
+
+# تابع تست برای کیبورد
+async def test_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    print(f"تست کیبورد برای کاربر {user_id}")
+    await update.message.reply_text(
+        "تست کیبورد ثابت:",
+        reply_markup=main_reply_keyboard()
+    )
+    await update.message.reply_text(
+        "تست کیبورد اینلاین:",
+        reply_markup=main_menu()
     )
 
 # مدیریت دکمه‌ها (اینلاین)
@@ -136,7 +163,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     choice = query.data
-    print(f"دکمه زده شده: {choice}")
+    user_id = query.from_user.id
+    print(f"دکمه زده شده: {choice} توسط کاربر {user_id}")
     
     if choice == "treatment":
         await query.edit_message_text(
@@ -295,6 +323,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["pending_type"] = "visit_online"
     elif choice == "back_to_main":
         context.user_data.clear()
+        print(f"ارسال کیبورد اصلی برای کاربر {user_id} از دکمه اینلاین")
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text="به دستیار گل و گیاهتون هیوا خوش اومدین💚\nیه گزینه رو انتخاب کن:",
@@ -306,7 +335,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
     section = context.user_data.get("section", None)
     text = update.message.text
-    print(f"متن دریافت‌شده: {text}")
+    print(f"متن دریافت‌شده: {text} از کاربر {user_id}")
     
     # پیام ادمین به آخرین کاربر
     if str(user_id) in ADMIN_IDS:
@@ -323,6 +352,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # مدیریت انتخاب از کیبورد ثابت
     if text == "درمان بیماری گیاهان":
+        print(f"کاربر {user_id} گزینه 'درمان بیماری گیاهان' را انتخاب کرد")
         await update.message.reply_text(
             "لطفاً نوع گیاهت یا مشکلی که داره رو توضیح بده و اگه می‌تونی یه عکس بفرست! 🌿",
             reply_markup=main_reply_keyboard()
@@ -333,18 +363,21 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["has_photo"] = False
         return
     elif text == "نحوه نگهداری گیاهان":
+        print(f"کاربر {user_id} گزینه 'نحوه نگهداری گیاهان' را انتخاب کرد")
         await update.message.reply_text(
             "چه نوع گیاهی داری؟ 🌱 یه دسته‌بندی انتخاب کن:",
             reply_markup=care_category_menu()
         )
         return
     elif text == "آموزش":
+        print(f"کاربر {user_id} گزینه 'آموزش' را انتخاب کرد")
         await update.message.reply_text(
             "یه موضوع آموزشی انتخاب کن:",
             reply_markup=education_menu()
         )
         return
     elif text == "محصولات":
+        print(f"کاربر {user_id} گزینه 'محصولات' را انتخاب کرد")
         await update.message.reply_text(
             "محصولاتمون رو اینجا ببین: کلی تخفیف و گیاه جدید منتظرته 🥰",
             reply_markup=InlineKeyboardMarkup([
@@ -353,6 +386,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     elif text == "ویزیت حضوری":
+        print(f"کاربر {user_id} گزینه 'ویزیت حضوری' را انتخاب کرد")
         await update.message.reply_text(
             "ویزیت حضوری 🌿:\n"
             "• موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
@@ -372,6 +406,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["awaiting_visit_home_info"] = True
         return
     elif text == "ویزیت آنلاین":
+        print(f"کاربر {user_id} گزینه 'ویزیت آنلاین' را انتخاب کرد")
         await update.message.reply_text(
             "ویزیت آنلاین 🌱:\n"
             "• موارد لازم واسه هر گیاه گفته می‌شه و حداکثر ۲۰ تا گلدون بررسی می‌شه.\n"
@@ -390,7 +425,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # بقیه منطق برای آدرس و ویزیت‌ها
     if section == "visit_home" and context.user_data.get("awaiting_visit_home_info", False):
         text_lines = text.split("\n")
-        print(f"اطلاعات ویزیت حضوری دریافت‌شده: {text_lines}")
+        print(f"اطلاعات ویزیت حضوری دریافت‌شده: {text_lines} از کاربر {user_id}")
         if len(text_lines) >= 3:
             context.user_data["visit_home_info"] = {
                 "plants": text_lines[0],
@@ -406,7 +441,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if section == "visit_online" and context.user_data.get("awaiting_visit_online_info", False):
         text_lines = text.split("\n")
-        print(f"اطلاعات ویزیت آنلاین دریافت‌شده: {text_lines}")
+        print(f"اطلاعات ویزیت آنلاین دریافت‌شده: {text_lines} از کاربر {user_id}")
         if len(text_lines) >= 2:
             context.user_data["visit_online_info"] = {
                 "plants": text_lines[0],
@@ -414,7 +449,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "phone": text_lines[2] if len(text_lines) > 2 else ""
             }
             context.user_data["awaiting_visit_online_info"] = False
-            # ارسال اطلاعات به ادمین‌ها
             visit_info = context.user_data["visit_online_info"]
             for admin_id in ADMIN_IDS:
                 try:
@@ -440,7 +474,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     context.user_data["user_id"] = user_id
-    context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
+    context.bot_data["last_user_id"] = user_id
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if section in ["treatment", "care"]:
@@ -507,10 +541,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     context.user_data["user_id"] = user_id
-    context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
+    context.bot_data["last_user_id"] = user_id
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
-    # فقط اگه کاربر توی بخش ویزیت باشه و منتظر رسید باشه، به‌عنوان رسید پردازش بشه
     if context.user_data.get("awaiting_receipt", False) and section in ["visit_home", "visit_online"]:
         pending_type = context.user_data.get("pending_type")
         for admin_id in ADMIN_IDS:
@@ -528,9 +561,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_reply_keyboard()
         )
         context.user_data["awaiting_receipt"] = False
-        context.user_data.pop("pending_type", None)  # پاک کردن نوع پرداخت بعد از پردازش
+        context.user_data.pop("pending_type", None)
     elif section in ["treatment", "care"]:
-        context.user_data["has_photo"] = True  # کاربر عکس فرستاده
+        context.user_data["has_photo"] = True
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
@@ -561,7 +594,7 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     context.user_data["user_id"] = user_id
-    context.bot_data["last_user_id"] = user_id  # ذخیره آخرین کاربر
+    context.bot-hasattr_data["last_user_id"] = user_id
     print(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("section") == "visit_home" and "visit_home_info" in context.user_data:
@@ -598,21 +631,26 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     contact = update.message.contact
     save_user(user_id, contact)
+    print(f"ارسال کیبورد اصلی برای کاربر {user_id} بعد از ثبت تماس")
     await update.message.reply_text(
         "ممنون! به خونواده ما اضافه شدی 🌱 یه گزینه انتخاب کن:",
         reply_markup=main_reply_keyboard()
     )
 
 # اجرای ربات
-def main():
+async def main():
+    print("شروع راه‌اندازی ربات...")
     app = Application.builder().token(BOT_TOKEN).build()
     
-    # حذف وب‌هوک قبل از شروع polling
-    app.bot.delete_webhook()
-    print("وب‌هوک با موفقیت حذف شد")
+    try:
+        await app.bot.delete_webhook(drop_pending_updates=True)
+        print("وب‌هوک با موفقیت حذف شد")
+    except Exception as e:
+        print(f"خطا در حذف وب‌هوک: {e}")
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", back_to_menu))
+    app.add_handler(CommandHandler("test", test_keyboard))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
@@ -627,7 +665,19 @@ def main():
             await update.callback_query.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کن ⚠️", reply_markup=main_reply_keyboard())
     app.add_error_handler(error_handler)
     
-    app.run_polling()
+    print("شروع Polling...")
+    try:
+        await app.initialize()
+        await app.run_polling()
+    finally:
+        await app.shutdown()
 
 if __name__ == "__main__":
-    main()
+    try:
+        # از event loop فعلی استفاده می‌کنیم یا یه loop جدید می‌سازیم
+        loop = asyncio.get_event_loop() if asyncio.get_event_loop().is_running() else asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        print("اجرای ربات با event loop مناسب")
+        loop.run_until_complete(main())
+    except Exception as e:
+        print(f"خطا در اجرای ربات: {e}")
