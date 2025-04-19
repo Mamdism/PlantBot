@@ -637,7 +637,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
                 print(f"فایل نامشخص به ادمین {admin_id} فوروارد شد")
             except Exception as e:
-                print(f"خطا در فوروارد فایل به ادمین {admin_id}: {e}")
+                print(f"خطا در فوروارد filed به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "فایلتون رو گرفتم، ولی نمی‌دونم چیه! لطفاً یه توضیح بدید که بفهمم چیکارش کنم 🌱",
             reply_markup=main_reply_keyboard()
@@ -696,10 +696,11 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # اجرای ربات
 async def main():
+    print("شروع راه‌اندازی ربات...")
     app = Application.builder().token(BOT_TOKEN).build()
     
     try:
-        await app.bot.delete_webhook(drop_pending_updates=True)  # حذف وب‌هوک و صف آپدیت‌ها
+        await app.bot.delete_webhook(drop_pending_updates=True)
         print("وب‌هوک با موفقیت حذف شد")
     except Exception as e:
         print(f"خطا در حذف وب‌هوک: {e}")
@@ -722,7 +723,24 @@ async def main():
             await update.callback_query.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
     app.add_error_handler(error_handler)
     
-    await app.run_polling(allowed_updates=Update.ALL_TYPES)
+    print("شروع Polling...")
+    await app.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            print("استفاده از event loop در حال اجرا")
+            loop.create_task(main())
+        else:
+            print("اجرای event loop جدید")
+            loop.run_until_complete(main())
+    except RuntimeError as e:
+        print(f"خطا در مدیریت event loop: {e}")
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(main())
+    finally:
+        if not loop.is_closed():
+            loop.close()
+            print("Event loop بسته شد")
