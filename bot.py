@@ -696,4 +696,18 @@ async def main():
     await app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-    asyncio.run(main())  # اجرای تابع اصلی با asyncio
+    # استفاده از حلقه رویداد موجود یا ایجاد حلقه جدید
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # اگر حلقه در حال اجرا است، از همان استفاده می‌کنیم
+            loop.create_task(main())
+            loop.run_forever()
+        else:
+            # اگر حلقه اجرا نمی‌شود، با run اجرا می‌کنیم
+            loop.run_until_complete(main())
+    except RuntimeError:
+        # در صورت خطا، یک حلقه جدید ایجاد می‌کنیم
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(main())
