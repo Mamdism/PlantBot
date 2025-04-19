@@ -724,17 +724,18 @@ async def main():
     app.add_error_handler(error_handler)
     
     print("شروع Polling...")
-    await app.run_polling()
-
-def run_bot():
     try:
-        loop = asyncio.new_event_loop()
+        await app.initialize()
+        await app.run_polling()
+    finally:
+        await app.shutdown()
+
+if __name__ == "__main__":
+    try:
+        # از event loop فعلی استفاده می‌کنیم یا یه loop جدید می‌سازیم
+        loop = asyncio.get_event_loop() if asyncio.get_event_loop().is_running() else asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        print("اجرای event loop جدید")
+        print("اجرای ربات با event loop مناسب")
         loop.run_until_complete(main())
     except Exception as e:
         print(f"خطا در اجرای ربات: {e}")
-    # بدون بستن loop، چون Koyeb خودش مدیریت می‌کنه
-
-if __name__ == "__main__":
-    run_bot()
