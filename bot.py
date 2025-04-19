@@ -637,7 +637,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
                 print(f"فایل نامشخص به ادمین {admin_id} فوروارد شد")
             except Exception as e:
-                print(f"خطا در فوروارد filed به ادمین {admin_id}: {e}")
+                print(f"خطا در فوروارد فایل به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "فایلتون رو گرفتم، ولی نمی‌دونم چیه! لطفاً یه توضیح بدید که بفهمم چیکارش کنم 🌱",
             reply_markup=main_reply_keyboard()
@@ -726,21 +726,15 @@ async def main():
     print("شروع Polling...")
     await app.run_polling()
 
-if __name__ == "__main__":
+def run_bot():
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            print("استفاده از event loop در حال اجرا")
-            loop.create_task(main())
-        else:
-            print("اجرای event loop جدید")
-            loop.run_until_complete(main())
-    except RuntimeError as e:
-        print(f"خطا در مدیریت event loop: {e}")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        print("اجرای event loop جدید")
         loop.run_until_complete(main())
-    finally:
-        if not loop.is_closed():
-            loop.close()
-            print("Event loop بسته شد")
+    except Exception as e:
+        print(f"خطا در اجرای ربات: {e}")
+    # بدون بستن loop، چون Koyeb خودش مدیریت می‌کنه
+
+if __name__ == "__main__":
+    run_bot()
