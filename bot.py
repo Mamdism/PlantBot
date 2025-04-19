@@ -1,19 +1,27 @@
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import google.generativeai as genai
 import requests
 import json
 import os
+import asyncio
+import logging  # اضافه کردن logging برای دیباگ
+
+# تنظیم لاگینگ
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 # آیدی عددی تلگرام ادمین‌ها
 ADMIN_IDS = ["1478363268", "6325733331"]
 
 # توکن ربات
-BOT_TOKEN = os.getenv("BOT_TOKEN", "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4")
+BOT_TOKEN = "7990694940:AAFAftck3lNCMdt4ts7LWfJEmqAxLu1r2g4"
 
 # کلید API Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4")
+GEMINI_API_KEY = "AIzaSyCPUX41Xo_N611S5ToS3eI-766Z7oHt2B4"
 
 # مشخصات حساب برای کارت به کارت
 CARD_INFO = "محمد باقری\n6219-8619-6996-9723"
@@ -40,7 +48,7 @@ def save_user(user_id, contact=None):
     
     with open(USERS_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=4)
-    print(f"کاربر {user_id} ذخیره شد")
+    logger.info(f"کاربر {user_id} ذخیره شد")
 
 # تابع برای گرفتن لیست کاربرها
 def get_users():
@@ -137,7 +145,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     choice = query.data
-    print(f"دکمه زده شده: {choice}")
+    logger.info(f"دکمه زده شده: {choice}")
     
     if choice == "treatment":
         await query.edit_message_text(
@@ -176,11 +184,31 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 گیاهان با نور خورشید غذا درست می‌کنن و بخش‌های مختلفی مثل ریشه، ساقه و برگ دارن. ریشه آب و مواد غذایی می‌گیره، ساقه منتقل می‌کنه و برگ‌ها انرژی تولید می‌کنن. مثلاً گیاهان آپارتمانی مثل *Spathiphyllum* به رطوبت و نور غیرمستقیم نیاز دارن. سوالی دارید؟ بپرسید! 🌱""",
             "edu_2": """**روش‌های آبیاری و تغذیه گیاهان** 💧  
 هر گیاهی نیاز آبی خاص خودشو داره؛ مثلاً کاکتوس‌ها هر دو هفته یه بار آب می‌خوان، ولی *Calathea* خاکش باید همیشه مرطوب باشه. کود هم برای رشدشون مهمه، نیتروژن برای برگ‌ها و فسفر برای ریشه‌ها. سوالی هست؟ بگید! 🌱""",
-            # بقیه موارد رو خودت می‌تونی اضافه کنی
+            "edu_3": """**تکثیر و پرورش گیاهان** 🌿  
+برای تکثیر می‌تونید از بذر یا قلمه استفاده کنید. مثلاً *Pothos* با قلمه راحت ریشه می‌ده. بذر بعضی گیاه‌ها مثل *Lavandula* نیاز به سرما داره تا سبز بشه. سوالی دارید؟ بپرسید! 🌱""",
+            "edu_4": """**کنترل آفات و بیماری‌ها** 🐞  
+اگه شپشک یا کنه دیدید، حشره‌کش سیستمیک بزنید. برای قارچ هم تهویه رو بهتر کنید و قارچ‌کش استفاده کنید. علائم رو بگید تا بیشتر راهنمایی کنم! 🌱""",
+            "edu_5": """**طراحی و نگهداری فضای سبز** 🌳  
+برای فضای سبز باید خاک و نور رو در نظر بگیرید. مثلاً *Ficus* برای سایه خوبه و *Rosa* آفتاب می‌خواد. هرس و کود هم لازمه. سوالی هست؟ بگید! 🌱""",
+            "edu_6": """**مشکلات رایج و راهکارها** ⚠️  
+برگ زرد بشه ممکنه آب زیاد یا کمبود غذا باشه. پژمردگی هم می‌تونه از ریشه باشه. مشکلی دارید؟ توضیح بدید! 🌱""",
+            "edu_7": """**روش‌های خاص نگهداری** 🌡️  
+بعضی گیاه‌ها مثل ارکیده (*Phalaenopsis*) رطوبت بالا می‌خوان. *Saintpaulia* هم بهتره از زیر آب بدید. سوالی هست؟ بپرسید! 🌱""",
+            "edu_8": """**نور و فتوسنتز** ☀️  
+نور برای گیاها خیلی مهمه. *Asplenium* نور کم می‌خواد، ولی *Hibiscus* آفتاب‌دوستِ. نور کم باشه رشدشون ضعیف می‌شه. سوالی دارید؟ بگید! 🌱""",
+            "edu_9": """**انتخاب بستر کاشت** 🏺  
+خاک باید زهکشی خوبی داشته باشه، مثلاً پرلیت و کوکوپیت قاطی کنید. pH هم برای اکثر گیاها 6-7 مناسبه. سوالی هست؟ بپرسید! 🌱"""
         }
         photo_urls = {
             "edu_1": "https://www.mediafire.com/view/hbd3ibb19ggw9gz/image.png/file",
             "edu_2": "https://www.mediafire.com/view/8v893e6yvaj5aif/image%25282%2529.png/file",
+            "edu_3": "https://www.mediafire.com/view/3duk4d4trc08iqf/image%25283%2529.png/file",
+            "edu_4": "https://www.mediafire.com/view/spax06s4q543ok2/image%25284%2529.png/file",
+            "edu_5": "https://www.mediafire.com/view/pfquugyy0lw3sve/image%25285%2529.png/file",
+            "edu_6": "https://www.mediafire.com/file/59xvp7h08nelzue/image.png/file",
+            "edu_7": "https://www.mediafire.com/view/mpf7dzi34qlfhhd/image%25287%2529.png/file",
+            "edu_8": "https://www.mediafire.com/view/tlfhpj31d4m1ipd/image%25288%2529.png/file",
+            "edu_9": "https://www.mediafire.com/file/4gssc3hndnpj0ix/image.png/file"
         }
         content = education_content.get(choice, "موضوع پیدا نشد!")
         photo_url = photo_urls.get(choice, None)
@@ -232,6 +260,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         context.user_data["section"] = "visit_home"
         context.user_data["awaiting_visit_home_info"] = True
+    elif choice == "pay_visit_home_gateway":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="درگاه پرداخت به‌زودی فعال می‌شه! فعلاً لطفاً کارت به کارت کنید.",
+            reply_markup=main_reply_keyboard()
+        )
     elif choice == "pay_visit_home_card":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -254,6 +288,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         context.user_data["section"] = "visit_online"
         context.user_data["awaiting_visit_online_info"] = True
+    elif choice == "pay_visit_online_gateway":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="درگاه پرداخت به‌زودی فعال می‌شه! فعلاً لطفاً کارت به کارت کنید.",
+            reply_markup=main_reply_keyboard()
+        )
     elif choice == "pay_visit_online_card":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -275,8 +315,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
     section = context.user_data.get("section", None)
     text = update.message.text
-    print(f"متن دریافت‌شده: {text}")
+    logger.info(f"متن دریافت‌شده: {text}")
     
+    # پیام ادمین به آخرین کاربر
     if str(user_id) in ADMIN_IDS:
         last_user_id = context.bot_data.get("last_user_id")
         if last_user_id:
@@ -284,11 +325,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=last_user_id,
                 text=update.message.text
             )
-            print(f"پیام ادمین به کاربر {last_user_id} ارسال شد")
+            logger.info(f"پیام ادمین به کاربر {last_user_id} ارسال شد")
         else:
             await update.message.reply_text("هنوز کسی پیامی نداده که جواب بدم!")
         return
     
+    # مدیریت انتخاب از کیبورد ثابت
     if text == "درمان بیماری گیاهان":
         await update.message.reply_text(
             "لطفاً درباره گیاهتون یا مشکلی که داره بگید، اگه عکسی هم دارید بفرستید! 🌿",
@@ -354,9 +396,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["awaiting_visit_online_info"] = True
         return
     
+    # بقیه منطق برای آدرس و ویزیت‌ها
     if section == "visit_home" and context.user_data.get("awaiting_visit_home_info", False):
         text_lines = text.split("\n")
-        print(f"اطلاعات ویزیت حضوری دریافت‌شده: {text_lines}")
+        logger.info(f"اطلاعات ویزیت حضوری دریافت‌شده: {text_lines}")
         if len(text_lines) >= 3:
             context.user_data["visit_home_info"] = {
                 "plants": text_lines[0],
@@ -372,7 +415,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if section == "visit_online" and context.user_data.get("awaiting_visit_online_info", False):
         text_lines = text.split("\n")
-        print(f"اطلاعات ویزیت آنلاین دریافت‌شده: {text_lines}")
+        logger.info(f"اطلاعات ویزیت آنلاین دریافت‌شده: {text_lines}")
         if len(text_lines) >= 2:
             context.user_data["visit_online_info"] = {
                 "plants": text_lines[0],
@@ -390,12 +433,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                              f"نام: {visit_info['name']}\n"
                              f"شماره: {visit_info['phone']}"
                     )
-                    print(f"اطلاعات ویزیت آنلاین به ادمین {admin_id} ارسال شد")
+                    logger.info(f"اطلاعات ویزیت آنلاین به ادمین {admin_id} ارسال شد")
                 except Exception as e:
-                    print(f"خطا در ارسال اطلاعات ویزیت آنلاین به ادمین {admin_id}: {e}")
+                    logger.error(f"خطا در ارسال اطلاعات ویزیت آنلاین به ادمین {admin_id}: {e}")
             await update.message.reply_text(
                 "ممنون! حالا نحوه پرداخت رو انتخاب کنید:",
                 reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_visit_online_gateway")],
                     [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_online_card")]
                 ])
             )
@@ -405,15 +449,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id
-    print(f"آیدی کاربر ذخیره شد: {user_id}")
+    logger.info(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if section in ["treatment", "care"]:
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
-                print(f"متن به ادمین {admin_id} فوروارد شد (بخش: {section})")
+                logger.info(f"متن به ادمین {admin_id} فوروارد شد (بخش: {section})")
             except Exception as e:
-                print(f"خطا در فوروارد متن به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد متن به ادمین {admin_id}: {e}")
         
         if context.user_data.get("first_message", True):
             loading_msg = await update.message.reply_text("یه لحظه صبر کنید، دارم فکر می‌کنم... 🌱")
@@ -427,8 +471,28 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             prompt = f"""
             تو یه متخصص گیاه‌شناسی حرفه‌ای و قابل اعتماد هستی که اطلاعات کاملی درباره انواع گیاهان داری: آپارتمانی، دارویی، کشاورزی، درختان، گل‌ها و هر چیز دیگه! قراره به سوالای کاربر با دقت و یه حس صمیمی و محترمانه جواب بدی، انگار یه مشاور دلسوز و آگاه هستی که می‌خواد کمک کنه.
+
+            اصول جواب دادنت:
+            - دقیق باش: همیشه اطلاعات درست و علمی بده.
+            - کامل توضیح بده: هر چی به سوال ربط داره رو بگو.
+            - ساده حرف بزن: طوری که همه بفهمن، بدون پیچیدگی.
+            - راهکار عملی بده: چیزی بگو که بشه راحت انجام داد.
+            - به حرفای کاربر توجه کن: جزئیات رو از قلم ننداز.
+            - سوالای ساده بپرس: مثلاً "هر چند وقت یه بار آبش می‌دید؟" یا "نورش چطوره؟"
+            - تشخیص قطعی نده: بگو بدون دیدن گیاه فقط حدس می‌زنم.
+            - صمیمی و محترم باش: با لحن گرم و دوستانه جواب بده، ولی حرفه‌ای بمون.
+            - اموجی‌های مرتبط بزن: مثل 🌱، 💧، ☀️، 🐞 برای جذاب‌تر شدن جواب.
+            - کوتاه و مفید باش: جوابات طولانی نشه، سریع برو سر اصل مطلب.
+            - اگه عکس یا فایل ندادن بگو: "اگه می‌تونید یه عکس بفرستید بهتره!"، اگه دادن دیگه نپرس.
+            - چت رو ادامه بده: مثل یه مکالمه طبیعی جواب بده، نه فقط یه پاسخ خشک.
+            - بخش درمان: درباره مشکل گیاه سوالای ساده بپرس.
+            - بخش نگهداری: بپرس اسم گیاه چیه و شرایط نگهداریش چطوره.
+
             کاربر داره درباره {section} گیاهش حرف می‌زنه.
+            {f"دسته‌بندی گیاه: {context.user_data.get('care_category', 'مشخص نشده')}" if section == "care" else ""}
+            تاریخچه چت: {conversation}.
             آخرین پیامش: "{text}".
+            عکس یا فایل فرستاده؟ {"بله" if context.user_data.get('has_photo', False) else "خیر"}.
             به فارسی، با لحن صمیمی و محترمانه جواب بده!
             """
             response = model.generate_content(prompt)
@@ -448,12 +512,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     section = context.user_data.get("section", None)
     if str(user_id) in ADMIN_IDS:
-        print(f"عکس از ادمین ({user_id}) بود، نادیده گرفته شد")
+        logger.info(f"عکس از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id
-    print(f"آیدی کاربر ذخیره شد: {user_id}")
+    logger.info(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("awaiting_receipt", False) and section in ["visit_home", "visit_online"]:
         pending_type = context.user_data.get("pending_type")
@@ -464,9 +528,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=admin_id,
                     text=f"رسید پرداخت از کاربر با آیدی: {user_id} (نوع: {pending_type})"
                 )
-                print(f"رسید پرداخت به ادمین {admin_id} فوروارد شد (نوع: {pending_type})")
+                logger.info(f"رسید پرداخت به ادمین {admin_id} فوروارد شد (نوع: {pending_type})")
             except Exception as e:
-                print(f"خطا در فوروارد رسید به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد رسید به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "رسیدتون رو گرفتم! بعد از تأیید ادمین باهاتون تماس می‌گیرن. مرسی که انتخابمون کردید 💚",
             reply_markup=main_reply_keyboard()
@@ -478,11 +542,22 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
-                print(f"عکس درمان/نگهداری به ادمین {admin_id} فوروارد شد (بخش: {section})")
+                logger.info(f"عکس درمان/نگهداری به ادمین {admin_id} فوروارد شد (بخش: {section})")
             except Exception as e:
-                print(f"خطا در فوروارد عکس به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد عکس به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "عکستون رو برای متخصصمون فرستادم! به‌زودی جوابتون رو می‌دم 🌱",
+            reply_markup=main_reply_keyboard()
+        )
+    else:
+        for admin_id in ADMIN_IDS:
+            try:
+                await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
+                logger.info(f"عکس نامشخص به ادمین {admin_id} فوروارد شد")
+            except Exception as e:
+                logger.error(f"خطا در فوروارد عکس به ادمین {admin_id}: {e}")
+        await update.message.reply_text(
+            "عکستون رو گرفتم، ولی نمی‌دونم باهاش چیکار کنم! لطفاً یه توضیح بدید 🌱",
             reply_markup=main_reply_keyboard()
         )
 
@@ -491,12 +566,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     section = context.user_data.get("section", None)
     if str(user_id) in ADMIN_IDS:
-        print(f"فایل از ادمین ({user_id}) بود، نادیده گرفته شد")
+        logger.info(f"فایل از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id
-    print(f"آیدی کاربر ذخیره شد: {user_id}")
+    logger.info(f"آیدی کاربر ذخیره شد: {user_id}")
     
     file = update.message.document
     file_type = file.mime_type
@@ -510,9 +585,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=admin_id,
                     text=f"رسید پرداخت (فایل) از کاربر با آیدی: {user_id} (نوع: {pending_type})"
                 )
-                print(f"رسید پرداخت (فایل) به ادمین {admin_id} فوروارد شد (نوع: {pending_type})")
+                logger.info(f"رسید پرداخت (فایل) به ادمین {admin_id} فوروارد شد (نوع: {pending_type})")
             except Exception as e:
-                print(f"خطا در فوروارد فایل به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد فایل به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "فایل رسیدتون رو گرفتم! بعد از تأیید ادمین باهاتون تماس می‌گیرن. مرسی که باهامون هستید 💚",
             reply_markup=main_reply_keyboard()
@@ -524,11 +599,22 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
-                print(f"فایل عکس درمان/نگهداری به ادمین {admin_id} فوروارد شد (بخش: {section})")
+                logger.info(f"فایل عکس درمان/نگهداری به ادمین {admin_id} فوروارد شد (بخش: {section})")
             except Exception as e:
-                print(f"خطا در فوروارد فایل عکس به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در فوروارد فایل عکس به ادمین {admin_id}: {e}")
         await update.message.reply_text(
             "عکس رو به‌صورت فایل فرستادید! برای متخصصمون فرستادم، به‌زودی جوابتون رو می‌دم 🌱",
+            reply_markup=main_reply_keyboard()
+        )
+    else:
+        for admin_id in ADMIN_IDS:
+            try:
+                await context.bot.forward_message(chat_id=admin_id, from_chat_id=user_id, message_id=update.message.message_id)
+                logger.info(f"فایل نامشخص به ادمین {admin_id} فوروارد شد")
+            except Exception as e:
+                logger.error(f"خطا در فوروارد فایل به ادمین {admin_id}: {e}")
+        await update.message.reply_text(
+            "فایلتون رو گرفتم، ولی نمی‌دونم چیه! لطفاً یه توضیح بدید که بفهمم چیکارش کنم 🌱",
             reply_markup=main_reply_keyboard()
         )
 
@@ -536,18 +622,19 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if str(user_id) in ADMIN_IDS:
-        print(f"لوکیشن از ادمین ({user_id}) بود، نادیده گرفته شد")
+        logger.info(f"لوکیشن از ادمین ({user_id}) بود، نادیده گرفته شد")
         return
     
     context.user_data["user_id"] = user_id
     context.bot_data["last_user_id"] = user_id
-    print(f"آیدی کاربر ذخیره شد: {user_id}")
+    logger.info(f"آیدی کاربر ذخیره شد: {user_id}")
     
     if context.user_data.get("section") == "visit_home" and "visit_home_info" in context.user_data:
         context.user_data["visit_home_info"]["location"] = update.message.location
         await update.message.reply_text(
             "ممنون! حالا نحوه پرداختتون رو انتخاب کنید:",
             reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("پرداخت از درگاه", callback_data="pay_visit_home_gateway")],
                 [InlineKeyboardButton("کارت به کارت", callback_data="pay_visit_home_card")]
             ])
         )
@@ -567,9 +654,9 @@ async def handle_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     latitude=update.message.location.latitude,
                     longitude=update.message.location.longitude
                 )
-                print(f"اطلاعات و لوکیشن با موفقیت به ادمین {admin_id} ارسال شد")
+                logger.info(f"اطلاعات و لوکیشن با موفقیت به ادمین {admin_id} ارسال شد")
             except Exception as e:
-                print(f"خطا در ارسال اطلاعات و لوکیشن به ادمین {admin_id}: {e}")
+                logger.error(f"خطا در ارسال اطلاعات و لوکیشن به ادمین {admin_id}: {e}")
 
 # مدیریت تماس
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -581,14 +668,12 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_reply_keyboard()
     )
 
-# اجرای ربات
-def main():
+# اجرای ربات به صورت ناهم‌زمان
+async def main():
+    # ساخت اپلیکیشن
     app = Application.builder().token(BOT_TOKEN).build()
-    
-    # حذف وب‌هوک برای اطمینان
-    app.bot.delete_webhook()
-    print("وب‌هوک با موفقیت حذف شد")
-    
+
+    # اضافه کردن هندلرها
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", back_to_menu))
     app.add_handler(CallbackQueryHandler(button_handler))
@@ -597,9 +682,35 @@ def main():
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
-    
-    print("ربات با Polling اجرا شد")
-    app.run_polling(drop_pending_updates=True)
+
+    # مدیریت خطاها
+    async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        logger.error(f"یه خطا پیش اومد: {context.error}")
+        if update and hasattr(update, "message") and update.message:
+            await update.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
+        elif update and hasattr(update, "callback_query") and update.callback_query:
+            await update.callback_query.message.reply_text("مشکلی پیش اومد! لطفاً دوباره امتحان کنید ⚠️", reply_markup=main_reply_keyboard())
+    app.add_error_handler(error_handler)
+
+    # حذف وب‌هوک (در صورت وجود)
+    logger.info("در حال حذف وب‌هوک...")
+    await app.bot.delete_webhook(drop_pending_updates=True)
+    logger.info("وب‌هوک با موفقیت حذف شد")
+
+    # راه‌اندازی اپلیکیشن
+    logger.info("در حال راه‌اندازی ربات...")
+    await app.initialize()
+    await app.start()
+    logger.info("ربات با موفقیت راه‌اندازی شد")
+
+    # اجرای polling به صورت مداوم
+    logger.info("شروع polling برای دریافت آپدیت‌ها...")
+    await app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    # این خط به صورت عادی نباید اجرا بشه، چون polling یه حلقه بی‌نهایته
+    logger.info("polling متوقف شد")
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        logger.error(f"خطا در اجرای برنامه: {e}")
